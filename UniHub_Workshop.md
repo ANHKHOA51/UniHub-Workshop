@@ -1,5 +1,3 @@
-  ĐỒ ÁN MÔN HỌC – UniHub Workshop | software-design-docs          {"@context":"https://schema.org","@type":"WebPage","headline":"ĐỒ ÁN MÔN HỌC – UniHub Workshop","url":"https://nndkhoa.github.io/software-design-docs/exercises/project/spec.html"}            [Skip to the content.](https://nndkhoa.github.io/software-design-docs/exercises/project/spec.html#content)
-
 # ĐỒ ÁN MÔN HỌC – UniHub Workshop
 
 [View on GitHub](https://github.com/nndkhoa/software-design-docs)
