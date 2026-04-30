@@ -54,68 +54,10 @@ Hệ thống UniHub Workshop áp dụng các mô hình giao tiếp và cơ chế
 ## C4 Diagram
 
 ### Level 1 — System Context
-
-```mermaid
-C4Context
-  title System Context for UniHub Workshop
-
-  Person(student, "Sinh viên", "Xem lịch, đăng ký, thanh toán và check-in.")
-  Person(admin, "Ban tổ chức", "Tạo, quản lý workshop và xem thống kê.")
-  Person(staff, "Nhân sự Check-in", "Quét mã QR tại cửa.")
-
-  System(unihub, "UniHub Workshop", "Hệ thống quản lý đăng ký và check-in sự kiện.")
-
-  System_Ext(legacy_sys, "Legacy Student System", "Hệ thống cũ của trường (xuất CSV).")
-  System_Ext(momo, "MoMo Sandbox", "Cổng thanh toán điện tử.")
-  System_Ext(openrouter, "OpenRouter AI", "Dịch vụ tóm tắt nội dung PDF.")
-  System_Ext(email_sys, "Email Service", "Hệ thống gửi email thông báo.")
-
-  Rel(student, unihub, "Đăng ký, xem lịch, nhận QR", "HTTPS")
-  Rel(admin, unihub, "Quản trị hệ thống", "HTTPS")
-  Rel(staff, unihub, "Check-in sinh viên", "HTTPS/Offline Sync")
-
-  Rel(unihub, legacy_sys, "Đọc file CSV hàng đêm", "File System/FTP")
-  Rel(unihub, momo, "Xử lý thanh toán", "HTTPS")
-  Rel(unihub, openrouter, "Gửi văn bản, nhận tóm tắt", "HTTPS")
-  Rel(unihub, email_sys, "Gửi thông báo", "SMTP/API")
-```
+![C4 Level 1 — System Context](../UnihubSystemContext.png)
 
 ### Level 2 — Container
-
-```mermaid
-C4Container
-  title Container diagram for UniHub Workshop
-
-  Person(student, "Sinh viên", "Người dùng đăng ký")
-  Person(admin, "Ban tổ chức", "Quản trị viên")
-  Person(staff, "Nhân sự", "Người quét QR")
-
-  System_Ext(momo, "MoMo Sandbox")
-  System_Ext(openrouter, "OpenRouter AI")
-
-  Container(web_app, "Web Application", "React, Next.js", "Cung cấp giao diện cho Sinh viên và Admin.")
-  Container(mobile_app, "Mobile App", "React Native", "App quét QR có hỗ trợ Offline Mode.")
-  Container(api_gateway, "API Server", "Node.js, NestJS", "Xử lý logic nghiệp vụ, xác thực, Rate Limiting.")
-  Container(worker, "Background Workers", "Node.js, BullMQ", "Xử lý CSV, gửi Email, gọi AI tóm tắt.")
-  
-  ContainerDb(db, "Primary Database", "PostgreSQL", "Lưu trữ User, Workshop, Registration, Payment.")
-  ContainerDb(cache, "Cache & Queue", "Redis", "Lưu Rate limit, Idempotency key, Queue jobs.")
-
-  Rel(student, web_app, "Truy cập", "HTTPS")
-  Rel(admin, web_app, "Quản trị", "HTTPS")
-  Rel(staff, mobile_app, "Sử dụng", "HTTPS")
-
-  Rel(web_app, api_gateway, "Gọi API", "JSON/HTTPS")
-  Rel(mobile_app, api_gateway, "Gọi API & Sync", "JSON/HTTPS")
-
-  Rel(api_gateway, db, "Đọc/Ghi", "TCP")
-  Rel(api_gateway, cache, "Đọc/Ghi, Enqueue", "TCP")
-  Rel(worker, db, "Đọc/Ghi", "TCP")
-  Rel(worker, cache, "Dequeue jobs", "TCP")
-
-  Rel(api_gateway, momo, "Tạo giao dịch", "JSON/HTTPS")
-  Rel(worker, openrouter, "Gọi AI", "JSON/HTTPS")
-```
+![C4 Level 2 — Container](../Containers.png)
 
 ## High-Level Architecture Diagram
 Sơ đồ kiến trúc chú trọng vào luồng thanh toán và check-in offline.
