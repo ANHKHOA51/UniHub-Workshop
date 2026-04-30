@@ -60,57 +60,7 @@ Hệ thống UniHub Workshop áp dụng các mô hình giao tiếp và cơ chế
 ![C4 Level 2 — Container](../Containers.png)
 
 ## High-Level Architecture Diagram
-Sơ đồ kiến trúc chú trọng vào luồng thanh toán và check-in offline.
-
-```mermaid
-graph TD
-    subgraph Client
-        Web[Web App]
-        Mobile[Mobile App Offline-first]
-    end
-
-    subgraph API_Layer
-        RateLimiter[Rate Limiter - Redis Token Bucket]
-        Gateway[API Gateway / NestJS]
-    end
-
-    subgraph Services
-        Auth[Auth Service]
-        Workshop[Workshop Service]
-        Reg[Registration Engine]
-        Pay[Payment Circuit Breaker]
-    end
-
-    subgraph Background_Workers
-        EmailWorker[Email Worker]
-        CSVWorker[CSV Import Worker]
-        AIWorker[AI PDF Worker]
-    end
-
-    subgraph Data
-        PG[(PostgreSQL)]
-        Redis[(Redis)]
-    end
-
-    Web --> RateLimiter
-    Mobile --> |Sync Data| RateLimiter
-    RateLimiter --> Gateway
-    Gateway --> Auth
-    Gateway --> Workshop
-    Gateway --> Reg
-    Gateway --> Pay
-
-    Reg --> |Locking| PG
-    Reg --> |Check Idempotency| Redis
-    Pay --> |Call MoMo| MoMo[MoMo Sandbox]
-    
-    Gateway -.-> |Publish Event| Redis
-    Redis -.-> |Consume| EmailWorker
-    Redis -.-> |Consume| AIWorker
-
-    CSV[Legacy CSV File] --> CSVWorker
-    CSVWorker --> PG
-```
+![High-Level Architecture Diagram](../HighLevelDiagram.png)
 
 ## Thiết kế cơ sở dữ liệu
 - **Loại Database:** Relational (PostgreSQL).
