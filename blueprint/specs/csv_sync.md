@@ -1,28 +1,43 @@
 # Đặc tả: Luồng đồng bộ dữ liệu sinh viên từ CSV
 
-## Mô tả
-Mỗi đêm, hệ thống cũ sẽ xuất danh sách sinh viên ra một file CSV. UniHub Workshop cần đọc file này và cập nhật vào Database để dùng làm dữ liệu xác thực cho quá trình đăng ký. Quá trình này phải thực hiện bất đồng bộ và không ảnh hưởng đến hiệu năng API chính.
+Hệ thống UniHub Workshop cần xác thực thông tin sinh viên khi đăng ký. Do hệ thống cũ không có API, UniHub sẽ thực hiện tích hợp một chiều (One-way Integration) thông qua file CSV được xuất định kỳ hàng đêm. Luồng này được thiết kế để xử lý lượng lớn dữ liệu mà không làm gián đoạn các dịch vụ đang chạy.
 
-## Luồng chính
-1. Hệ thống cũ đẩy file CSV vào một thư mục được cấu hình hoặc S3 bucket.
-2. Hệ thống lên lịch (Cron Job / BullMQ) chạy vào 2:00 sáng.
-3. Worker tìm file CSV mới nhất và bắt đầu đọc theo cơ chế Streaming (không load toàn bộ file vào RAM).
-4. Mỗi dòng (batch khoảng 500-1000 dòng):
-   - Parse dữ liệu, kiểm tra tính hợp lệ của format (Email, MSSV).
-   - Dùng lệnh `UPSERT` (VD: `INSERT ... ON CONFLICT (email) DO UPDATE`) vào PostgreSQL.
-5. Sau khi quét xong file, worker ghi nhận kết quả (số lượng thành công, thất bại, dòng lỗi) vào bảng log `Sync_Logs`.
-6. Gửi thông báo đến Admin (qua Telegram hoặc Email) về kết quả đồng bộ.
+## Các thành phần tham gia:
 
-## Kịch bản lỗi
-- **File bị lỗi định dạng / Thiếu cột quan trọng:** Worker sẽ dừng lập tức (fail-fast), ghi log lỗi nghiêm trọng và cảnh báo Admin. Không cập nhật dữ liệu dở dang.
-- **Một vài dòng bị sai (VD: email rác):** Worker bỏ qua dòng đó, tăng biến đếm lỗi, lưu thông tin dòng bị lỗi và tiếp tục xử lý các dòng khác.
-- **Worker bị crash giữa chừng:** Job Queue (BullMQ) có cơ chế retry. Cần thiết kế quá trình `UPSERT` là idempotent, chạy lại bao nhiêu lần kết quả cũng không thay đổi, không sinh dữ liệu rác.
+- **Legacy System:** Hệ thống cũ của trường, thực hiện export file CSV.
+- **CSV Import Worker:** Tiến trình chạy nền (Worker) xử lý việc đọc và lưu dữ liệu.
+- **Primary Database (PostgreSQL):** Lưu trữ thông tin sinh viên sau khi đồng bộ.
+- **Event Broker (Redis):** Quản lý hàng đợi tác vụ và phát các sự kiện sau khi hoàn tất.
+- **Notification Service:** Thành phần gửi thông báo kết quả (Email, Telegram, v.v.).
 
-## Ràng buộc
-- Tối ưu bộ nhớ: Bắt buộc dùng ReadStream để parse CSV, không được nạp toàn bộ file vào RAM để tránh Out of Memory.
-- Tốc độ xử lý: Cần giới hạn số connection/transaction đồng thời để không khóa Database quá lâu (Sử dụng batch processing).
+## Luồng chính:
 
-## Tiêu chí chấp nhận
-- Chạy thử file 100,000 dòng mất không quá 5 phút và sử dụng RAM dưới 200MB.
-- Không phát sinh dữ liệu trùng lặp nếu import cùng 1 file 2 lần liên tiếp.
-- Log chi tiết các dòng bị lỗi để Admin kiểm tra.
+- Hệ thống cũ tự động xuất file danh sách sinh viên định kỳ (ví dụ: 2:00 sáng) vào thư mục lưu trữ được cấu hình trước.
+- **CSV Import Worker** (một tiến trình riêng biệt) được kích hoạt theo lịch trình (Cron Job) thông qua BullMQ.
+- Worker kiểm tra sự tồn tại của file mới. Nếu có, tiến trình bắt đầu đọc file bằng cơ chế **Streaming** (đọc theo luồng) để tối ưu hóa bộ nhớ, tránh nạp toàn bộ file lớn vào RAM.
+- Dữ liệu được xử lý theo từng **Batch** (ví dụ: mỗi lô 1.000 bản ghi) để giảm số lượng transaction và tránh khóa bảng database quá lâu.
+- Với mỗi lô dữ liệu, Worker thực hiện:
+    - Kiểm tra tính hợp lệ sơ bộ của từng dòng (đúng định dạng Email, MSSV, Họ tên).
+    - Sử dụng lệnh **UPSERT** (Insert on Conflict Update) vào PostgreSQL để đảm bảo tính nhất quán (Idempotency).
+- **Hoàn tất và Thông báo:**
+    - Sau khi xử lý xong, Worker phát sự kiện `CSV_SYNC_COMPLETED` vào Event Broker kèm theo thông tin tổng kết (tổng số dòng, thành công, lỗi).
+    - Hệ thống thông báo (Notification Service) lắng nghe sự kiện để gửi báo cáo cho Ban tổ chức qua các kênh đã cấu hình (Email/Telegram), cho phép dễ dàng mở rộng thêm kênh mới sau này.
+
+## Kịch bản lỗi:
+
+- **File CSV sai định dạng hoặc trống:** Worker ghi nhận lỗi vào log hệ thống, phát cảnh báo khẩn cấp cho Admin và dừng tiến trình (fail-fast) để tránh làm hỏng dữ liệu hiện có.
+- **Dữ liệu trong dòng bị lỗi (Ví dụ: Email sai format):** Worker bỏ qua dòng lỗi đó, tăng biến đếm lỗi và tiếp tục xử lý các dòng tiếp theo trong Batch. Thông tin tổng hợp về số lượng lỗi sẽ được bao gồm trong thông báo cuối cùng.
+- **Worker bị crash hoặc mất kết nối Database giữa chừng:** Nhờ cơ chế của BullMQ, job sẽ được retry sau một khoảng thời gian. Do sử dụng lệnh UPSERT (Idempotent), việc chạy lại job sẽ không gây ra dữ liệu trùng lặp hoặc rác trong hệ thống.
+- **Dung lượng file quá lớn:** Nếu file vượt quá ngưỡng an toàn, hệ thống sẽ thực hiện chia nhỏ file hoặc tăng giới hạn tài nguyên cho Worker để xử lý ổn định.
+## Ràng buộc:
+
+- **Tích hợp một chiều:** Không thể gọi API ngược lại hệ thống cũ; chỉ đọc file theo lịch cố định.
+- **Idempotency:** Việc xử lý cùng một file nhiều lần (hoặc retry khi lỗi) không gây ra dữ liệu trùng lặp hoặc sai lệch.
+- **Isolation:** Tiến trình đồng bộ chạy trên Worker riêng biệt, không tiêu tốn tài nguyên của API Server phục vụ sinh viên.
+
+## Tiêu chí chấp nhận:
+
+- Hệ thống xử lý được file dữ liệu lên tới hàng chục nghìn sinh viên mà không gây ra lỗi Out of Memory (RAM sử dụng ổn định dưới mức ngưỡng cấu hình).
+- Toàn bộ sinh viên hợp lệ trong file CSV phải được tìm thấy trong hệ thống UniHub Workshop sau khi đồng bộ thành công.
+- Ban tổ chức nhận được thông báo tổng kết sau mỗi lần đồng bộ (thành công/thất bại).
+- Không có dữ liệu trùng lặp được tạo ra ngay cả khi tiến trình bị gián đoạn và chạy lại.
