@@ -11,19 +11,21 @@ Idempotency key để bảo vệ hệ thống.
 - Sinh viên chọn đăng ký một workshop có tính phí. Phía web client sẽ tạo chuỗi UUID
     và đính kèm chuỗi này trong http header của request gửi về phía server.
 - Backend sẽ kiểm tra idempotency key của request. Nếu là request mới backend sẽ
-    kiểm tra số chỗ còn lại của workshop. Nếu còn trống thì tăng số người tham gia lên 1
-    và tạo dữ liệu trong bảng đăng ký, nếu hết chỗ trong lúc đăng ký thì trả về lỗi và
+    kiểm tra số chỗ còn lại của workshop. 
+- Số chỗ ngồi còn lại của workshop được lưu tại cache Redis. Nếu còn trống thì tăng số người tham gia lên 1
+    và tạo dữ liệu trong bảng đăng ký với trạng thái `processing`, nếu hết chỗ trong lúc đăng ký thì trả về lỗi và
     client hiển thị thông báo hết chỗ.
 - Backend kết nối với MoMo và nhận về url. Backend lưu idempotency key mới vào
-    Redis và trả về url từ MoMo cho client.
+    Redis, tạo dữ liệu mới trong bảng `Payment` với trạng thái `pending` và trả về url từ MoMo cho client.
 - Client chuyển tới trang MoMo và thực hiện thanh toán.
 - MoMo gửi thông tin về backend sau khi hoàn tất giao dịch.
 
 
-- Backend kiểm tra và xác nhận giao dịch hoàn thành. Nếu thanh toán thành công, cập
-    nhật lại thông tin đăng ký của sinh viên, đồng thời gửi thông báo qua app hoặc email.
+- Backend kiểm tra và xác nhận giao dịch hoàn thành:
+  - Nếu thanh toán thành công, cập
+    nhật lại trạng thái trên bảng `Payment` thành `finished` và trạng thái đăng ký của sinh viên thành `success`, đồng thời gửi thông báo qua app hoặc email.
     Mã QR sẽ được tạo và thêm vào thông tin đăng ký của sinh viên.
-    Nếu thanh toán thất bại, huỷ thông tin đăng ký workshop và giảm số người tham gia
+  - Nếu thanh toán thất bại, chuyển trạng thái `Payment` thành `failed` và trạng thái đăng ký thành `canceled`, đồng thời giảm số người tham gia
     workshop đi 1.
 
 ## Kịch bản lỗi:
@@ -33,12 +35,11 @@ Idempotency key để bảo vệ hệ thống.
     thông báo là đang thực hiện giao dịch.
 - Mất kết nối với MoMo: Nếu thời gian chờ khi kết nối tới MoMo lâu hoặc gặp nhiều lỗi,
     circuit breaker chuyển qua trạng thái open, ngắt kết nối với MoMo và trả về lỗi cho
-    phía client, đồng thời huỷ thông tin đăng ký workshop và giảm số người tham gia
-    workshop đi 1.
+    phía client. Backend thực hiện trường hợp thanh toán thất bại.
 - Thanh toán thành công với MoMo nhưng backend không nhận được phản hồi hoặc
-    Sinh viên ngừng thực hiện thanh toán với MoMo giữa chừng: Sau khoảng thời gian
+    sinh viên ngừng thực hiện thanh toán với MoMo giữa chừng: Sau khoảng thời gian
     chờ, hỏi lại MoMo bằng thông tin giao dịch. Nếu MoMo xác nhận giao dịch thất bại,
-    hoàn tác lại quá trình đăng ký workshop.
+    backend thực hiện trường hợp thanh toán thất bại..
 
 ## Ràng buộc:
 
@@ -52,4 +53,4 @@ Idempotency key để bảo vệ hệ thống.
 - Sinh viên không bị trừ tiền 2 lần cho 1 lần đăng ký.
 - Việc xem workshop và đăng ký workshop không tính phí vẫn được diễn ra khi cổng
     thanh toán gặp sự cố.
-- Sinh viên nhận được thông báo đăng ký workshop thành công và mã QR xác nhận.
+- Sinh viên nhận được thông báo đăng ký workshop thành công và có mã QR xác nhận.
