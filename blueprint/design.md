@@ -54,20 +54,20 @@ Hệ thống UniHub Workshop áp dụng các mô hình giao tiếp và cơ chế
 ## C4 Diagram
 
 ### Level 1 — System Context
-![C4 Level 1 — System Context](../UnihubSystemContext.png)
+![C4 Level 1 — System Context](./images/UnihubSystemContext.png)
 
 ### Level 2 — Container
-![C4 Level 2 — Container](../Containers.png)
+![C4 Level 2 — Container](./images/Containers.png)
 
 ## High-Level Architecture Diagram
-![High-Level Architecture Diagram](../HighLevelDiagram.png)
+![High-Level Architecture Diagram](./images/HighLevelDiagram.png)
 
 ## Thiết kế cơ sở dữ liệu
 - **Loại Database:** Relational (PostgreSQL).
 - **Lý do:** Hệ thống yêu cầu tính toàn vẹn dữ liệu cao (ACID) đối với giao dịch thanh toán và đặc biệt là việc đăng ký slot (sử dụng row-level locking). 
 
 **Schema cơ bản (ERD):**
-![UniHub ERD](../UniHub_Schema.png)
+![UniHub ERD](./images/UniHub_Schema.png)
 
 ## Thiết kế kiểm soát truy cập
 ## 1. Mô hình lựa chọn
@@ -129,7 +129,7 @@ Tất cả các API (ngoại trừ API lấy danh sách Workshop cho trang chủ
 - **Chấp nhận:** Sinh viên chỉ thao tác được dữ liệu của mình; Nhân sự chỉ quét được QR; Admin toàn quyền vận hành.
 
 ## 5. Sơ đồ thiết kế
-![RBAC Diagram](../RBAC.png)
+![RBAC Diagram](./images/RBAC.png)
 
 ## Thiết kế các cơ chế bảo vệ hệ thống
 
