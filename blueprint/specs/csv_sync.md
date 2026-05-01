@@ -1,8 +1,14 @@
 # Đặc tả: Luồng đồng bộ dữ liệu sinh viên từ CSV
 
-## Mô tả:
+Hệ thống UniHub Workshop cần xác thực thông tin sinh viên khi đăng ký. Do hệ thống cũ không có API, UniHub sẽ thực hiện tích hợp một chiều (One-way Integration) thông qua file CSV được xuất định kỳ hàng đêm. Luồng này được thiết kế để xử lý lượng lớn dữ liệu mà không làm gián đoạn các dịch vụ đang chạy.
 
-Hệ thống UniHub Workshop cần xác thực thông tin sinh viên khi đăng ký, tuy nhiên hệ thống quản lý sinh viên cũ của trường không cung cấp API trực tiếp. Do đó, hệ thống thực hiện đồng bộ dữ liệu thông qua file CSV được xuất định kỳ hàng đêm từ hệ thống cũ. Luồng này đảm bảo dữ liệu sinh viên luôn được cập nhật mới nhất để phục vụ việc xác thực mà không làm gián đoạn các dịch vụ đang chạy.
+## Các thành phần tham gia:
+
+- **Legacy System:** Hệ thống cũ của trường, thực hiện export file CSV.
+- **CSV Import Worker:** Tiến trình chạy nền (Worker) xử lý việc đọc và lưu dữ liệu.
+- **Primary Database (PostgreSQL):** Lưu trữ thông tin sinh viên sau khi đồng bộ.
+- **Event Broker (Redis):** Quản lý hàng đợi tác vụ và phát các sự kiện sau khi hoàn tất.
+- **Notification Service:** Thành phần gửi thông báo kết quả (Email, Telegram, v.v.).
 
 ## Luồng chính:
 
@@ -12,25 +18,22 @@ Hệ thống UniHub Workshop cần xác thực thông tin sinh viên khi đăng 
 - Dữ liệu được xử lý theo từng **Batch** (ví dụ: mỗi lô 1.000 bản ghi) để giảm số lượng transaction và tránh khóa bảng database quá lâu.
 - Với mỗi lô dữ liệu, Worker thực hiện:
     - Kiểm tra tính hợp lệ sơ bộ của từng dòng (đúng định dạng Email, MSSV, Họ tên).
-    - Sử dụng lệnh **UPSERT** (Insert on Conflict Update) vào PostgreSQL để đảm bảo nếu sinh viên đã tồn tại thì cập nhật thông tin mới, nếu chưa có thì thêm mới.
-- Sau khi hoàn tất xử lý file, Worker thực hiện:
-    - Ghi nhận kết quả vào bảng `SyncLogs` (bao gồm: thời gian bắt đầu/kết thúc, tổng số dòng, số dòng thành công, số dòng lỗi, đường dẫn file nguồn).
-    - Phát Event `CSV_SYNC_COMPLETED` vào Event Broker.
-- Một Worker khác lắng nghe sự kiện này và gửi thông báo kết quả (Email hoặc Telegram) cho Ban tổ chức để theo dõi tình trạng dữ liệu.
+    - Sử dụng lệnh **UPSERT** (Insert on Conflict Update) vào PostgreSQL để đảm bảo tính nhất quán (Idempotency).
+- **Hoàn tất và Thông báo:**
+    - Sau khi xử lý xong, Worker phát sự kiện `CSV_SYNC_COMPLETED` vào Event Broker kèm theo thông tin tổng kết (tổng số dòng, thành công, lỗi).
+    - Hệ thống thông báo (Notification Service) lắng nghe sự kiện để gửi báo cáo cho Ban tổ chức qua các kênh đã cấu hình (Email/Telegram), cho phép dễ dàng mở rộng thêm kênh mới sau này.
 
 ## Kịch bản lỗi:
 
 - **File CSV sai định dạng hoặc trống:** Worker ghi nhận lỗi vào log hệ thống, phát cảnh báo khẩn cấp cho Admin và dừng tiến trình (fail-fast) để tránh làm hỏng dữ liệu hiện có.
-- **Dữ liệu trong dòng bị lỗi (Ví dụ: Email sai format):** Worker bỏ qua dòng lỗi đó, tăng biến đếm lỗi và tiếp tục xử lý các dòng tiếp theo trong Batch. Thông tin về dòng lỗi sẽ được lưu lại trong chi tiết của `SyncLogs`.
+- **Dữ liệu trong dòng bị lỗi (Ví dụ: Email sai format):** Worker bỏ qua dòng lỗi đó, tăng biến đếm lỗi và tiếp tục xử lý các dòng tiếp theo trong Batch. Thông tin tổng hợp về số lượng lỗi sẽ được bao gồm trong thông báo cuối cùng.
 - **Worker bị crash hoặc mất kết nối Database giữa chừng:** Nhờ cơ chế của BullMQ, job sẽ được retry sau một khoảng thời gian. Do sử dụng lệnh UPSERT (Idempotent), việc chạy lại job sẽ không gây ra dữ liệu trùng lặp hoặc rác trong hệ thống.
 - **Dung lượng file quá lớn:** Nếu file vượt quá ngưỡng an toàn, hệ thống sẽ thực hiện chia nhỏ file hoặc tăng giới hạn tài nguyên cho Worker để xử lý ổn định.
-
 ## Ràng buộc:
 
-- Quá trình đồng bộ chỉ diễn ra một chiều từ hệ thống cũ sang UniHub Workshop.
-- **Idempotency:** Việc import cùng một file nhiều lần phải cho ra kết quả dữ liệu cuối cùng giống hệt nhau.
-- **Hiệu suất:** Không được làm tăng độ trễ (latency) của các API nghiệp vụ chính (Đăng ký, Xem Workshop) trong khi đang đồng bộ.
-- Thời gian lưu trữ `SyncLogs` chi tiết tối thiểu là 30 ngày để đối soát.
+- **Tích hợp một chiều:** Không thể gọi API ngược lại hệ thống cũ; chỉ đọc file theo lịch cố định.
+- **Idempotency:** Việc xử lý cùng một file nhiều lần (hoặc retry khi lỗi) không gây ra dữ liệu trùng lặp hoặc sai lệch.
+- **Isolation:** Tiến trình đồng bộ chạy trên Worker riêng biệt, không tiêu tốn tài nguyên của API Server phục vụ sinh viên.
 
 ## Tiêu chí chấp nhận:
 
