@@ -1,30 +1,55 @@
-# Đặc tả: Luồng thanh toán đăng ký Workshop
+# Đặc tả: Luồng đăng ký workshop có phí (từ khi bấm “Đăng ký” đến khi nhận mã QR)
 
-## Mô tả
-Xử lý giao dịch thanh toán khi Sinh viên đăng ký một workshop có thu phí. Luồng này tích hợp với cổng thanh toán MoMo Sandbox và áp dụng cơ chế Circuit Breaker, Idempotency để chống lỗi.
+## Mô tả:
 
-## Luồng chính
-1. Sinh viên bấm "Đăng ký" tại Frontend.
-2. Frontend tạo một chuỗi UUID ngẫu nhiên làm `Idempotency-Key` và gửi request đăng ký lên Backend.
-3. Backend kiểm tra chỗ ngồi (Row-level lock). Nếu còn chỗ, tạo `Registration` với trạng thái `pending_payment` và tạo record `Payment` tương ứng.
-4. Backend gọi API tạo giao dịch của MoMo Sandbox.
-5. MoMo trả về Payment URL. Backend lưu `Idempotency-Key` với trạng thái `processing` và trả URL về cho Frontend.
-6. Frontend chuyển hướng người dùng sang trang của MoMo để thanh toán.
-7. MoMo gửi IPN (Webhook) về Backend sau khi giao dịch thành công.
-8. Backend nhận IPN, xác minh chữ ký, cập nhật `Payment` và `Registration` thành `paid`, và gửi Email thông báo.
+Tính năng này xử lý tình huống sinh viên đăng ký workshop có thu phí. Luồng đăng ký này
+tích hợp với MoMo sandbox để hỗ trợ thanh toán và áp dụng các cơ chế Circuit Breaker và
+Idempotency key để bảo vệ hệ thống.
 
-## Kịch bản lỗi
-- **Trùng lặp request (Client spam click):** Backend phát hiện `Idempotency-Key` đã tồn tại trong Redis -> Trả về `409 Conflict` (Giao dịch đang xử lý) hoặc trả thẳng kết quả nếu đã thành công.
-- **MoMo API Timeout / Circuit Breaker Open:** Nếu MoMo phản hồi chậm hoặc lỗi liên tục, Circuit Breaker ngắt kết nối. API trả về lỗi `503 Service Unavailable` hoặc một thông báo "Cổng thanh toán bảo trì". Hủy thao tác giữ chỗ để người khác có thể mua vé.
-- **Webhook bị thất lạc / Không nhận được IPN:** Sẽ có một Background Job định kỳ kiểm tra các `Payment` đang ở trạng thái `pending` quá 15 phút và chủ động gọi API `CheckTransactionStatus` của MoMo để đối soát.
-- **Thanh toán thất bại trên MoMo:** Backend nhận IPN báo lỗi -> Cập nhật `Registration` thành `cancelled` và nhả lại chỗ (giảm `registered_count`).
+## Luồng chính:
 
-## Ràng buộc
-- Mã `Idempotency-Key` có hiệu lực tối thiểu 24 giờ.
-- Dữ liệu `amount` và `transaction_id` phải khớp tuyệt đối giữa hệ thống và MoMo.
-- Timeout khi gọi API MoMo tối đa là 5 giây.
+- Sinh viên chọn đăng ký một workshop có tính phí. Phía web client sẽ tạo chuỗi UUID
+    và đính kèm chuỗi này trong http header của request gửi về phía server.
+- Backend sẽ kiểm tra idempotency key của request. Nếu là request mới backend sẽ
+    kiểm tra số chỗ còn lại của workshop. Nếu còn trống thì tăng số người tham gia lên 1
+    và tạo dữ liệu trong bảng đăng ký, nếu hết chỗ trong lúc đăng ký thì trả về lỗi và
+    client hiển thị thông báo hết chỗ.
+- Backend kết nối với MoMo và nhận về url. Backend lưu idempotency key mới vào
+    Redis và trả về url từ MoMo cho client.
+- Client chuyển tới trang MoMo và thực hiện thanh toán.
+- MoMo gửi thông tin về backend sau khi hoàn tất giao dịch.
 
-## Tiêu chí chấp nhận
-- Không có sinh viên nào bị trừ tiền 2 lần cho cùng 1 lượt đăng ký.
-- Khi MoMo lỗi cục bộ, luồng đăng ký workshop miễn phí vẫn hoạt động bình thường.
-- Có luồng đối soát tự động khi webhook bị rớt mạng.
+
+- Backend kiểm tra và xác nhận giao dịch hoàn thành. Nếu thanh toán thành công, cập
+    nhật lại thông tin đăng ký của sinh viên, đồng thời gửi thông báo qua app hoặc email.
+    Mã QR sẽ được tạo và thêm vào thông tin đăng ký của sinh viên.
+    Nếu thanh toán thất bại, huỷ thông tin đăng ký workshop và giảm số người tham gia
+    workshop đi 1.
+
+## Kịch bản lỗi:
+
+- Các request gửi đi có idempotency key trùng nhau: Backend kiểm tra idempotency
+    key đã tồn tại trong redis và trả về http status 409 (conflict). Client xử lý lỗi và hiển thị
+    thông báo là đang thực hiện giao dịch.
+- Mất kết nối với MoMo: Nếu thời gian chờ khi kết nối tới MoMo lâu hoặc gặp nhiều lỗi,
+    circuit breaker chuyển qua trạng thái open, ngắt kết nối với MoMo và trả về lỗi cho
+    phía client, đồng thời huỷ thông tin đăng ký workshop và giảm số người tham gia
+    workshop đi 1.
+- Thanh toán thành công với MoMo nhưng backend không nhận được phản hồi hoặc
+    Sinh viên ngừng thực hiện thanh toán với MoMo giữa chừng: Sau khoảng thời gian
+    chờ, hỏi lại MoMo bằng thông tin giao dịch. Nếu MoMo xác nhận giao dịch thất bại,
+    hoàn tác lại quá trình đăng ký workshop.
+
+## Ràng buộc:
+
+- Mỗi sinh viên chỉ được đăng ký mỗi workshop 1 lần.
+- Idempotency key hết hạn sau 5 phút khi đang xử lý và hết hạn sau 24 giờ sau khi
+    thanh toán thành công.
+- Timeout khi kết nối tới MoMo tối đa 3 giây.
+
+## Tiêu chí chấp nhận:
+
+- Sinh viên không bị trừ tiền 2 lần cho 1 lần đăng ký.
+- Việc xem workshop và đăng ký workshop không tính phí vẫn được diễn ra khi cổng
+    thanh toán gặp sự cố.
+- Sinh viên nhận được thông báo đăng ký workshop thành công và mã QR xác nhận.

@@ -82,27 +82,82 @@ Hệ thống UniHub Workshop áp dụng các mô hình giao tiếp và cơ chế
 
 ## Thiết kế các cơ chế bảo vệ hệ thống
 
-### 1. Kiểm soát tải đột biến (Rate Limiting)
-- **Giải pháp:** Sử dụng thuật toán **Token Bucket** triển khai trên Redis.
-- **Cách hoạt động:** Khi 12.000 sinh viên truy cập, Redis sẽ cấp phát token cho mỗi IP/User. Nếu vượt quá ngưỡng (ví dụ: 10 request/giây/User), API sẽ trả về HTTP 429 (Too Many Requests).
-- **Ưu điểm:** Redis xử lý in-memory cực nhanh, không làm nghẽn Node.js process.
+### 1. Kiểm soát tải đột biến
 
-### 2. Xử lý cổng thanh toán không ổn định (Circuit Breaker & Graceful Degradation)
-- **Giải pháp:** Áp dụng **Circuit Breaker Pattern** cho luồng gọi sang MoMo.
-- **Cách hoạt động:**
-  - **Closed:** Trạng thái bình thường, request đi qua MoMo.
-  - **Open:** Nếu MoMo timeout liên tục (ví dụ 5 lỗi trong 10 giây), Circuit ngắt (Open). Thay vì đợi timeout gây treo hệ thống, API trả về ngay lập tức lỗi `PaymentGatewayUnavailable`.
-  - **Half-Open:** Sau 1 khoảng thời gian, cho phép 1 vài request thử nghiệm. Nếu thành công thì đóng lại (Closed).
-- **Graceful Degradation:** Khi Circuit Open, sinh viên vẫn xem được lịch và đăng ký workshop miễn phí bình thường. Với workshop có phí, UI hiện thông báo "Cổng thanh toán đang bảo trì, vui lòng quay lại sau".
+#### Giải pháp: 
 
-### 3. Chống trừ tiền hai lần (Idempotency Key)
-- **Giải pháp:** Client sinh ra một chuỗi UUID duy nhất (`Idempotency-Key`) cho mỗi phiên đăng ký/thanh toán và gửi kèm trong HTTP Header.
-- **Cách hoạt động:**
-  - API nhận request, kiểm tra khóa này trong Redis (với TTL = 24h).
-  - Nếu chưa có, ghi khóa vào Redis với trạng thái `processing`, tiếp tục xử lý thanh toán và đổi trạng thái thành `success` hoặc `failed`.
-  - Nếu đã có và trạng thái là `success`, trả về kết quả thành công ngay lập tức mà không gọi lại MoMo.
-  - Nếu đã có và trạng thái `processing`, trả về lỗi `Conflict` (Client đang spam request).
+Sử dụng thuật toán Token Bucket cho Rate limiting. Sử dụng 2 token bucket, 1
+bucket để giới hạn tổng lượng request tới api đăng ký workshop trong cùng 1 thời điểm, 1
+bucket để giới hạn số lượng request mỗi user có thể gửi tại 1 thời điểm.
 
-### 4. Giải quyết tranh chấp chỗ ngồi (Concurrency Control)
-- **Giải pháp:** Pessimistic Locking với PostgreSQL.
-- **Cách hoạt động:** Khi user bấm đăng ký, hệ thống gọi lệnh `SELECT capacity, registered_count FROM Workshops WHERE id = ? FOR UPDATE`. Dòng này sẽ bị khóa tạm thời. Hệ thống kiểm tra `registered_count < capacity`. Nếu thỏa, tạo `Registration` và tăng `registered_count` lên 1, sau đó `COMMIT`. Các request khác cho cùng workshop sẽ phải đợi lock nhả ra.
+#### Cách hoạt động:
+- Tạo bucket trên Redis chứa token cho các request, mỗi request sẽ tốn 1 token.
+    Lượng token sẽ được nạp lại đều đặn theo thời gian dựa trên tốc độ refill được định
+    nghĩa trước.
+- Bucket giới hạn tổng lượng request sẽ có rate limit key global, bucket của user sẽ có
+    rate limit key theo user id.
+- Bucket global giới hạn 2400 token, tốc độ nạp là 20 token/s. Bucket của user giới
+    hạn 10 token, tốc độ nạp là 1 token/s.
+- Khi nhận request sẽ kiểm tra rate limit key theo user trước. Nếu chưa vượt ngưỡng
+    thì tiếp tục kiểm tra với rate limit key global. Nếu vẫn nằm trong giới hạn thì request
+    sẽ được xử lý. Nếu một trong hai bucket hết token thì request sẽ bị chặn và trả về
+    http status 429 (too many request).
+
+#### Lý do lựa chọn: 
+
+Việc sử dụng thuật toán Token bucket phù hợp với tình huống burst ngắn
+của bài toán, với lượng truy cập lớn ở thời điểm đầu khi mở đăng ký workshop. Sử dụng cả
+bucket global và bucket cho từng user vừa đảm bảo backend không bị quá tải, vừa đảm bảo
+tính công bằng trong việc đăng ký.
+
+### 2. Xử lý cổng thanh toán không ổn định
+
+#### Giải pháp: 
+
+Sử dụng Circuit breaker cho kết nối tới cổng thanh toán
+
+####  Cách hoạt động:
+- Ở trạng thái closed: Circuit breaker sẽ cho phép backend gửi request đến cổng
+    thanh toán của bên thứ ba như MoMo để thực hiện giao dịch.
+- Ở trạng thái open: Khi thời gian chờ nhiều hơn 3 giây hoặc số lượng request thất bại
+    vượt quá mức 50%, circuit breaker chuyển sang trạng thái open, chặn mọi request
+    tới cổng thanh toán và trả về lỗi.
+- Ở trạng thái half-open: Sau 30 giây timeout, circuit breaker sẽ cho phép một số
+    request tới cổng thanh toán. Nếu kết quả trả về thất bại, circuit breaker sẽ giữ trạng
+    thái open. Nếu kết quả trả về thành công, circuit breaker sẽ trở về trạng thái closed
+    và cho phép kết nối tới cổng thanh toán.
+- Graceful degradation: Khi cổng thanh toán không hoạt động thì chỉ chặn đăng ký các
+    workshop có phí và hiển thị thông báo đang khắc phục cổng thanh toán. Việc xem
+    các workshop cũng như đăng ký các workshop không tính phí diễn ra bình thường.
+
+#### Lý do lựa chọn: 
+
+Sử dụng circuit breaker để ngắt kết nối với cổng thanh toán khi dịch vụ gặp
+lỗi, tránh ngăn lỗi lan rộng ra các phần khác và làm sập hệ thống.
+
+### 3. Chống trừ tiền hai lần
+
+#### Giải pháp: 
+
+Client khi gửi request đến api thanh toán sẽ kèm theo idempotency key bên trong
+http header
+
+#### Cách hoạt động:
+- Cơ chế sinh key: Client sẽ tạo chuỗi UUID và đặt vào http header khi gửi request
+    thanh toán.
+- Nơi lưu trữ: Key sẽ được lưu vào Redis
+- Kiểm tra trùng lặp: Khi request tới backend, kiểm tra idempotency key bên trong
+    header. Nếu đã có key này thì sẽ trả về http status 409 (conflict) nếu như đang xử lý
+    thanh toán hoặc trả về kết quả (response body) nếu đã thanh toán thành công. Nếu
+    key không được lưu thì sẽ tiếp tục xử lý request để lấy kết quả và lưu kết quả này
+    với key từ request của client. Khi lưu key mới vào Redis sẽ thêm option NX(chỉ lưu
+    nếu key chưa tồn tại) để tránh trường hợp hai request trùng key tới backend cùng
+    lúc và key chưa được tạo.
+- Thời gian hết hạn: Khi lưu key mới vào Redis sẽ thiết lập TTL là 5 phút cho key đang
+    xử lý thanh toán và đặt lại TTL là 24 giờ cho key thanh toán thành công. Key sẽ tự
+    động bị xoá khi thời gian hết hạn trôi qua.
+
+#### Lý do lựa chọn: 
+
+Sử dụng Idempotency key giúp backend nhận biết được request trừ tiền bị
+trùng, từ đó xử lý trùng lặp và tránh việc trừ tiền hai lần.
