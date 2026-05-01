@@ -22,10 +22,9 @@ Idempotency key để bảo vệ hệ thống.
 
 - Backend kiểm tra và xác nhận giao dịch hoàn thành. Nếu thanh toán thành công, cập
     nhật lại thông tin đăng ký của sinh viên, đồng thời gửi thông báo qua app hoặc email.
-    Chuỗi UUID cho mã QR sẽ được tạo và thêm vào thông tin đăng ký của sinh viên.
+    Mã QR sẽ được tạo và thêm vào thông tin đăng ký của sinh viên.
     Nếu thanh toán thất bại, huỷ thông tin đăng ký workshop và giảm số người tham gia
     workshop đi 1.
-- Backend gửi chuỗi UUID của mã QR về phía client.
 
 ## Kịch bản lỗi:
 
