@@ -6,7 +6,7 @@ Mục tiêu của kế hoạch này là xây dựng hệ thống **UniHub Worksh
 
 > [!IMPORTANT]
 > **Đề xuất Technology Stack:** 
-> - **Backend:** Node.js (NestJS hoặc Express) kết hợp TypeScript. Lý do: Xử lý I/O non-blocking tốt, phù hợp cho bài toán nhiều connection đồng thời.
+> - **Backend:** Node.js (NestJS hoặc Express) kết hợp Javascript.
 > - **Database:** PostgreSQL (đảm bảo tính toàn vẹn dữ liệu cho giao dịch/chỗ ngồi) + Redis (dùng cho Caching, Rate Limiting, Idempotency, Job Queue).
 > - **Frontend Web:** React hoặc Next.js.
 > - **Mobile App:** React Native hoặc Flutter (hỗ trợ tốt cross-platform và lưu trữ offline).
