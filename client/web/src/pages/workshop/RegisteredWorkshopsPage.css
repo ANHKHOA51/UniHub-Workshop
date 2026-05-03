@@ -1,0 +1,187 @@
+.registered-workshops-container {
+  min-height: 100vh;
+  background-color: var(--bg-secondary);
+  padding-bottom: 80px;
+}
+
+.registered-header {
+  background: var(--primary);
+  color: white;
+  padding: 80px 24px 60px;
+  text-align: center;
+  position: relative;
+}
+
+.back-button-floating {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.back-button-floating:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.registered-header h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  margin-bottom: 12px;
+}
+
+.registered-header p {
+  opacity: 0.8;
+  font-size: 1.1rem;
+}
+
+.registered-list-container {
+  max-width: 900px;
+  margin: -30px auto 0;
+  padding: 0 24px;
+  position: relative;
+  z-index: 5;
+}
+
+.registered-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.registered-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  padding: 24px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.registered-card:hover {
+  transform: translateX(8px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.ws-thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.ws-main-info {
+  flex: 1;
+}
+
+.ws-main-info h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text-main);
+}
+
+.ws-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.status-badge-inline {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-badge-inline.confirmed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge-inline.pending_payment {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.card-footer-action {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.qr-preview-section,
+.payment-action-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.qr-label {
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.payment-warning {
+  font-size: 0.85rem;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.view-qr-btn {
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 6px 16px;
+  font-size: 0.8rem;
+}
+
+.view-qr-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.pay-now-btn {
+  background: #10b981;
+  border-color: #10b981;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px;
+  background: white;
+  border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .status-badge-inline {
+    align-self: flex-start;
+  }
+}
