@@ -1,4 +1,5 @@
 import { addEmailJob } from '../queues/email.queue.js';
+import { NotificationMethod } from './notification.service.js';
 
 class EmailNotificationMethod extends NotificationMethod {
     async send(message) {
@@ -13,3 +14,5 @@ class EmailNotificationMethod extends NotificationMethod {
         }
     }
 }
+
+export { EmailNotificationMethod };

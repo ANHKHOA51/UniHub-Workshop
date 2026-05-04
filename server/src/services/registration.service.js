@@ -44,7 +44,7 @@ export const createRegistration = async (userId, workshopId) => {
     }
 
     const seatKey = `workshop:${workshopId}:participants`;
-    const maxSeats = workshop.max_participants || workshop.maxParticipants || 50;
+    const maxSeats = workshop.capacity;
 
     const result = await redisClient.reserveSeat(seatKey, maxSeats.toString());
 
@@ -63,7 +63,7 @@ export const createRegistration = async (userId, workshopId) => {
     const qrCodeData = generateQrData(registration.id.toString());
 
     registration = await RegistrationModel.update(registration.id, {
-        qr_code_data: qrCodeData,
+        qr_code: qrCodeData,
         status: 'success'
     });
 
@@ -91,7 +91,7 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
     }
 
     const seatKey = `workshop:${workshopId}:participants`;
-    const maxSeats = workshop.max_participants || workshop.maxParticipants || 50;
+    const maxSeats = workshop.capacity;
 
     const result = await redisClient.reserveSeat(seatKey, maxSeats.toString());
 
@@ -112,12 +112,12 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
 
     try {
         const extraData = Buffer.from(JSON.stringify({ userId, workshopId, idempotencyKey })).toString('base64');
-        const response = await momoBreaker.fire(id, workshop.price || 100000, extraData);
+        const response = await momoBreaker.fire(id, workshop.price, extraData);
         payUrl = response.payUrl;
 
         await PaymentModel.create({
             registration_id: id,
-            amount: workshop.price || 100000,
+            amount: workshop.price,
             status: 'pending'
         });
     } catch (err) {
@@ -141,7 +141,7 @@ export const cancelRegistration = async (registrationId, workshopId) => {
     }
     if (registrationId) {
         await RegistrationModel.updateStatus(registrationId, 'canceled');
-        
+
         const payments = await PaymentModel.findByRegistrationId(registrationId);
         for (const payment of payments) {
             if (payment.status === 'pending') {
@@ -173,8 +173,8 @@ export const handlePaymentWebhook = async (payload) => {
         const qrCodeData = generateQrData(orderId.toString());
 
         await RegistrationModel.update(orderId, {
-            status: 'success',
-            qr_code_data: qrCodeData
+            qr_code: qrCodeData,
+            status: 'success'
         });
 
         const payments = await PaymentModel.findByRegistrationId(orderId);
