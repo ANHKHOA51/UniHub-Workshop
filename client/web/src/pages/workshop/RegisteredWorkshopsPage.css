@@ -81,15 +81,6 @@
   position: relative;
 }
 
-.ws-thumb {
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
-  background-size: cover;
-  background-position: center;
-  flex-shrink: 0;
-}
-
 .ws-main-info {
   flex: 1;
 }

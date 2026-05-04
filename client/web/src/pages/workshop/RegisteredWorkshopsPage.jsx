@@ -5,7 +5,6 @@ import './RegisteredWorkshopsPage.css';
 
 const REGISTERED_MOCK = [
   { ...MOCK_WORKSHOPS[0], status: 'confirmed', qrCode: 'WS-12345-QR' },
-  { ...MOCK_WORKSHOPS[1], status: 'pending_payment', qrCode: null },
 ];
 
 const RegisteredWorkshopsPage = () => {
@@ -15,7 +14,7 @@ const RegisteredWorkshopsPage = () => {
     <div className="registered-workshops-container">
       <header className="registered-header">
         <button className="back-button-floating" onClick={() => navigate('/workshops')}>
-          ← Quay lại
+          <i className="fa-solid fa-arrow-left"></i> Quay lại
         </button>
         <div className="header-content">
           <h1>Workshop của tôi</h1>
@@ -34,11 +33,10 @@ const RegisteredWorkshopsPage = () => {
             {REGISTERED_MOCK.map((ws) => (
               <div key={ws.id} className="registered-card" onClick={() => navigate(`/workshops/${ws.id}`)}>
                 <div className="card-header">
-                  <div className="ws-thumb" style={{ backgroundImage: `url(${ws.image})` }}></div>
                   <div className="ws-main-info">
                     <h3>{ws.title}</h3>
-                    <p className="ws-meta">📅 {ws.date} | {ws.time}</p>
-                    <p className="ws-meta">📍 {ws.location}</p>
+                    <p className="ws-meta"><i className="fa-solid fa-calendar-days"></i> {ws.time}</p>
+                    <p className="ws-meta"><i className="fa-solid fa-location-dot"></i> {ws.location}</p>
                   </div>
                   <div className={`status-badge-inline ${ws.status}`}>
                     {ws.status === 'confirmed' ? 'Đã xác nhận' : 'Chờ thanh toán'}
