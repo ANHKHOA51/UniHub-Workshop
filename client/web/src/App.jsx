@@ -4,6 +4,8 @@ import LoginPage from './pages/login/LoginPage'
 import WorkshopsPage from './pages/workshop/WorkshopsPage'
 import WorkshopDetailPage from './pages/workshop/WorkshopDetailPage'
 import RegisteredWorkshopsPage from './pages/workshop/RegisteredWorkshopsPage'
+import AdminWorkshopsPage from './pages/admin/AdminWorkshopsPage'
+import CreateWorkshopPage from './pages/admin/CreateWorkshopPage'
 import './App.css'
 
 function App() {
@@ -41,10 +43,11 @@ function App() {
   };
 
   const isLoginPage = location.pathname === '/login' || location.pathname === '/';
+  const isAdminPage = location.pathname.startsWith('/admin');
 
   return (
-    <div className={`app ${isLoginPage ? 'login-page-active' : 'content-page-active'}`}>
-      {!isLoginPage && (
+    <div className={`app ${isLoginPage ? 'login-page-active' : (isAdminPage ? 'admin-page-active' : 'content-page-active')}`}>
+      {!isLoginPage && !isAdminPage && (
         <div className="top-nav-actions">
           <button
             className="nav-btn"
@@ -64,15 +67,17 @@ function App() {
         onClick={scrollToTop}
         title="Cuộn lên đầu trang"
       >
-        ↑
+        <i className="fa-solid fa-arrow-up"></i>
       </button>
 
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<div onClick={() => navigate('/workshops')} style={{ cursor: 'pointer' }}><LoginPage /></div>} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/workshops" element={<WorkshopsPage />} />
         <Route path="/workshops/:id" element={<WorkshopDetailPage />} />
         <Route path="/my-workshops" element={<RegisteredWorkshopsPage />} />
+        <Route path="/admin/workshops" element={<AdminWorkshopsPage />} />
+        <Route path="/admin/workshops/create" element={<CreateWorkshopPage />} />
       </Routes>
     </div>
   )
