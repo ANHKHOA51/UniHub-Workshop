@@ -1,3 +1,6 @@
+import { RegistrationModel } from '../models/registration.model.js';
+import { WorkshopModel } from '../models/workshop.model.js';
+import { PaymentModel } from '../models/payment.model.js';
 import { NotificationService } from './notification.service.js';
 import { EmailNotificationMethod } from './email.service.js';
 import { generateQrData } from '../utils/qr.helper.js';
@@ -26,8 +29,22 @@ momoBreaker.on('halfOpen', () => console.warn('MoMo Circuit Breaker HALF-OPEN'))
 momoBreaker.on('close', () => console.warn('MoMo Circuit Breaker CLOSED'));
 
 export const createRegistration = async (userId, workshopId) => {
+    const workshop = await WorkshopModel.findById(workshopId);
+    if (!workshop) {
+        const error = new Error('Workshop not found');
+        error.status = 404;
+        throw error;
+    }
+
+    const existing = await RegistrationModel.findByUserAndWorkshop(userId, workshopId);
+    if (existing && existing.status !== 'canceled') {
+        const error = new Error('You have already registered for this workshop');
+        error.status = 400;
+        throw error;
+    }
+
     const seatKey = `workshop:${workshopId}:participants`;
-    const maxSeats = 50; 
+    const maxSeats = workshop.capacity;
 
     const result = await redisClient.reserveSeat(seatKey, maxSeats.toString());
 
@@ -37,29 +54,44 @@ export const createRegistration = async (userId, workshopId) => {
         throw error;
     }
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    let registration = await RegistrationModel.create({
+        user_id: userId,
+        workshop_id: workshopId,
+        status: 'pending'
+    });
 
-    const id = `reg_${Math.random().toString(36).substring(2, 9)}`;
-    const qrCodeData = generateQrData(id);
+    const qrCodeData = generateQrData(registration.id.toString());
+
+    registration = await RegistrationModel.update(registration.id, {
+        qr_code: qrCodeData,
+        status: 'success'
+    });
 
     notificationService.notifyAll({
         user: { userId },
-        content: `Đăng ký thành công workshop: ${workshopId}`
+        content: `Đăng ký thành công workshop: ${workshop.title}`
     });
 
-    return {
-        id,
-        userId,
-        workshopId,
-        status: 'registered',
-        qrCodeData,
-        createdAt: new Date().toISOString()
-    };
+    return registration;
 };
 
 export const createPaymentRegistration = async (userId, workshopId, idempotencyKey) => {
+    const workshop = await WorkshopModel.findById(workshopId);
+    if (!workshop) {
+        const error = new Error('Workshop not found');
+        error.status = 404;
+        throw error;
+    }
+
+    const existing = await RegistrationModel.findByUserAndWorkshop(userId, workshopId);
+    if (existing && existing.status !== 'canceled') {
+        const error = new Error('You have already registered for this workshop');
+        error.status = 400;
+        throw error;
+    }
+
     const seatKey = `workshop:${workshopId}:participants`;
-    const maxSeats = 50; 
+    const maxSeats = workshop.capacity;
 
     const result = await redisClient.reserveSeat(seatKey, maxSeats.toString());
 
@@ -69,13 +101,25 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
         throw error;
     }
 
-    const id = `reg_${Math.random().toString(36).substring(2, 9)}`;
+    const registration = await RegistrationModel.create({
+        user_id: userId,
+        workshop_id: workshopId,
+        status: 'processing'
+    });
+
+    const id = registration.id.toString();
     let payUrl;
 
     try {
         const extraData = Buffer.from(JSON.stringify({ userId, workshopId, idempotencyKey })).toString('base64');
-        const response = await momoBreaker.fire(id, 100000, extraData);
+        const response = await momoBreaker.fire(id, workshop.price, extraData);
         payUrl = response.payUrl;
+
+        await PaymentModel.create({
+            registration_id: id,
+            amount: workshop.price,
+            status: 'pending'
+        });
     } catch (err) {
         await cancelRegistration(id, workshopId);
         const error = new Error('Payment gateway is currently unavailable');
@@ -95,38 +139,75 @@ export const cancelRegistration = async (registrationId, workshopId) => {
         const seatKey = `workshop:${workshopId}:participants`;
         await redisClient.decr(seatKey);
     }
+    if (registrationId) {
+        await RegistrationModel.updateStatus(registrationId, 'canceled');
+
+        const payments = await PaymentModel.findByRegistrationId(registrationId);
+        for (const payment of payments) {
+            if (payment.status === 'pending') {
+                await PaymentModel.updateStatus(payment.id, 'failed');
+            }
+        }
+    }
     return true;
 };
 
 export const handlePaymentWebhook = async (payload) => {
     const { orderId, resultCode, extraData } = payload;
-    let mockWorkshopId = 'mock_workshop_id'; 
+    let workshopId = 'mock_workshop_id';
     let idempotencyKey = null;
     let userId = null;
 
     if (extraData) {
         try {
             const decoded = JSON.parse(Buffer.from(extraData, 'base64').toString('utf-8'));
-            mockWorkshopId = decoded.workshopId || mockWorkshopId;
+            workshopId = decoded.workshopId || workshopId;
             idempotencyKey = decoded.idempotencyKey;
             userId = decoded.userId;
         } catch (e) {
             console.error('Failed to parse extraData', e.message);
         }
     }
-    
+
     if (resultCode === 0) {
-        const qrCodeData = generateQrData(orderId);
+        const qrCodeData = generateQrData(orderId.toString());
+
+        await RegistrationModel.update(orderId, {
+            qr_code: qrCodeData,
+            status: 'success'
+        });
+
+        const payments = await PaymentModel.findByRegistrationId(orderId);
+        for (const payment of payments) {
+            if (payment.status === 'pending') {
+                await PaymentModel.updateStatus(payment.id, 'finished');
+            }
+        }
 
         if (idempotencyKey) {
             const redisKey = `idempotency:${idempotencyKey}`;
-            await redisClient.expire(redisKey, 86400);
+            const finalResponse = {
+                message: 'Registration and payment successful',
+                data: {
+                    registrationId: orderId,
+                    status: 'success',
+                    qrCodeData
+                }
+            };
+            const successData = {
+                status: 'success',
+                statusCode: 200,
+                response: finalResponse
+            };
+            await redisClient.set(redisKey, JSON.stringify(successData), {
+                EX: 86400
+            });
         }
 
         if (userId) {
             notificationService.notifyAll({
                 user: { userId },
-                content: `Thanh toán thành công cho workshop: ${mockWorkshopId}`
+                content: `Thanh toán thành công cho workshop: ${workshopId}`
             });
         }
 
@@ -137,7 +218,7 @@ export const handlePaymentWebhook = async (payload) => {
             message: 'Payment completed successfully'
         };
     } else {
-        await cancelRegistration(orderId, mockWorkshopId);
+        await cancelRegistration(orderId, workshopId);
         return {
             id: orderId,
             status: 'canceled',
@@ -146,25 +227,3 @@ export const handlePaymentWebhook = async (payload) => {
     }
 };
 
-export const getRegistrationsByUser = async (userId) => {
-    // In a real app, this would query the database
-    // For now, returning mock registrations for the student
-    return [
-        {
-            id: 'reg_abc123',
-            userId: userId,
-            workshopId: 'ws_001',
-            status: 'registered',
-            qrCodeData: generateQrData('reg_abc123'),
-            createdAt: '2026-05-01T10:00:00Z'
-        },
-        {
-            id: 'reg_def456',
-            userId: userId,
-            workshopId: 'ws_002',
-            status: 'success',
-            qrCodeData: generateQrData('reg_def456'),
-            createdAt: '2026-05-02T11:00:00Z'
-        }
-    ];
-};
