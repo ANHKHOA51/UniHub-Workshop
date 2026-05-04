@@ -67,22 +67,3 @@ export const momoWebhook = async (req, res) => {
     }
 };
 
-export const getStudentRegistrations = async (req, res) => {
-    try {
-        const userId = req.user?.userId || req.user?.id;
-        if (!userId) {
-            return res.status(401).json({ message: 'User not authenticated' });
-        }
-
-        const registrations = await registrationService.getRegistrationsByUser(userId);
-
-        return res.status(200).json({
-            message: 'Successfully fetched registrations',
-            data: registrations
-        });
-    } catch (error) {
-        console.error('Get Registrations Error:', error.message);
-        const status = error.status || 500;
-        return res.status(status).json({ message: error.message || 'Internal server error' });
-    }
-};

@@ -227,6 +227,3 @@ export const handlePaymentWebhook = async (payload) => {
     }
 };
 
-export const getRegistrationsByUser = async (userId) => {
-    return await RegistrationModel.findByUserId(userId);
-};

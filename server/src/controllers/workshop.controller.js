@@ -71,3 +71,19 @@ export const deleteWorkshop = async (req, res) => {
         });
     }
 };
+
+export const listStudentWorkshops = async (req, res) => {
+    try {
+        const userId = req.user?.userId || req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: 'User not authenticated' });
+        }
+
+        const workshops = await workshopService.getWorkshopsByUser(userId);
+        res.status(200).json(workshops);
+    } catch (error) {
+        res.status(error.status || 500).json({
+            message: error.message || 'Failed to fetch your workshops'
+        });
+    }
+};

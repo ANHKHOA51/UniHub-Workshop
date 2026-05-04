@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerWorkshop, registerPaidWorkshop, momoWebhook, getStudentRegistrations } from '../controllers/registration.controller.js';
+import { registerWorkshop, registerPaidWorkshop, momoWebhook } from '../controllers/registration.controller.js';
 import { rateLimiter } from '../middlewares/rateLimiter.middleware.js';
 import { idempotency } from '../middlewares/idempotency.middleware.js';
 import { isAuthenticated, isAuthorized } from '../middlewares/auth.middleware.js';
@@ -19,12 +19,6 @@ router.post(
     rateLimiter,
     idempotency,
     registerPaidWorkshop
-);
-
-router.get(
-    '/',
-    isAuthorized(['STUDENT']),
-    getStudentRegistrations
 );
 
 router.post(

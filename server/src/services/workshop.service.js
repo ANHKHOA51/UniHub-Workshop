@@ -86,3 +86,7 @@ export const deleteWorkshop = async (id) => {
     return deletedCount;
 };
 
+export const getWorkshopsByUser = async (userId) => {
+    return await WorkshopModel.findByUserId(userId);
+};
+

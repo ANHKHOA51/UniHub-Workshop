@@ -24,5 +24,12 @@ export const WorkshopModel = {
 
     async delete(id) {
         return db('workshops').where({ id }).del();
+    },
+
+    async findByUserId(userId) {
+        return db('workshops')
+            .join('registrations', 'workshops.id', 'registrations.workshop_id')
+            .where('registrations.user_id', userId)
+            .select('workshops.*');
     }
 };
