@@ -1,5 +1,6 @@
 import { Worker } from 'bullmq';
 import nodemailer from 'nodemailer';
+import { UserModel } from '../models/user.model.js';
 
 const redisConnection = {
     url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
@@ -36,7 +37,11 @@ export const emailWorker = new Worker('email', async (job) => {
             throw new Error('Missing required email field: userId');
         }
 
-        const to = "example email"; // TO-DO: Query the database to find user's email.
+        const user = await UserModel.findById(userId);
+        if (!user || !user.email) {
+            throw new Error(`User with ID ${userId} not found or has no email`);
+        }
+        const to = user.email;
         const subject = 'Đăng ký workshop thành công';
         const text = message;
         const html = `<p>${message}</p>`;
