@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   card: {
-    backgroundColor: '#1E1B3A',
+    backgroundColor: '#1F2937',
     borderRadius: Radius.xl,
     padding: Spacing['2xl'],
     alignItems: 'center',
@@ -158,18 +158,18 @@ const styles = StyleSheet.create({
   },
   studentName: {
     ...Typography.h2,
-    color: '#F1F5F9',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   message: {
     ...Typography.body,
-    color: '#94A3B8',
+    color: '#D1D5DB',
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
   timestamp: {
     ...Typography.caption,
-    color: '#64748B',
+    color: '#9CA3AF',
   },
 });

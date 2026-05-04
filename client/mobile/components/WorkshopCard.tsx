@@ -41,8 +41,8 @@ export function WorkshopCard({ workshop, onPress }: WorkshopCardProps) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.timeContainer}>
-          <MaterialIcons name="schedule" size={14} color={Brand.accent} />
-          <Text style={[styles.timeText, { color: Brand.accent }]}>
+          <MaterialIcons name="schedule" size={14} color={theme.tint} />
+          <Text style={[styles.timeText, { color: theme.tint }]}>
             {workshop.startTime} – {workshop.endTime}
           </Text>
         </View>
@@ -91,7 +91,7 @@ export function WorkshopCard({ workshop, onPress }: WorkshopCardProps) {
               styles.progressFill,
               {
                 width: `${checkinProgress}%`,
-                backgroundColor: checkinProgress > 80 ? Brand.success : Brand.primary,
+                backgroundColor: checkinProgress > 80 ? Brand.success : theme.tint,
               },
             ]}
           />

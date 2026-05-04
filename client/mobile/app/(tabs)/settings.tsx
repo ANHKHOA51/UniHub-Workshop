@@ -99,8 +99,8 @@ export default function SettingsScreen() {
 
       {/* User Info Card */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.userAvatar}>
-          <MaterialIcons name="person" size={28} color={Brand.primary} />
+        <View style={[styles.userAvatar, { backgroundColor: theme.borderLight }]}>
+          <MaterialIcons name="person" size={28} color={theme.tint} />
         </View>
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: theme.text }]}>{user?.fullName}</Text>
@@ -134,7 +134,7 @@ export default function SettingsScreen() {
         {/* Pending sync */}
         <View style={styles.settingRow}>
           <View style={styles.settingLeft}>
-            <MaterialIcons name="cloud-upload" size={22} color={Brand.accent} />
+            <MaterialIcons name="cloud-upload" size={22} color={theme.tint} />
             <Text style={[styles.settingLabel, { color: theme.text }]}>Chờ đồng bộ</Text>
           </View>
           <View style={styles.pendingBadge}>
@@ -164,10 +164,10 @@ export default function SettingsScreen() {
         <Button
           title="Đồng bộ ngay"
           onPress={handleForceSync}
-          variant="secondary"
+          variant="primary"
           loading={isSyncing}
           disabled={!isOnline || pendingCount === 0}
-          icon={<MaterialIcons name="sync" size={18} color={Brand.primary} />}
+          icon={<MaterialIcons name="sync" size={18} color={colorScheme === 'dark' ? '#000000' : '#FFFFFF'} />}
           style={styles.syncButton}
         />
       </View>
@@ -252,7 +252,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,

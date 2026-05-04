@@ -6,7 +6,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Brand, Radius, Spacing, Typography } from '@/constants/theme';
+import { Brand, Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface SyncIndicatorProps {
   pendingCount: number;
@@ -15,6 +16,9 @@ interface SyncIndicatorProps {
 }
 
 export function SyncIndicator({ pendingCount, isSyncing, isOnline }: SyncIndicatorProps) {
+  const colorScheme = useColorScheme() ?? 'dark';
+  const theme = Colors[colorScheme];
+
   if (pendingCount === 0 && !isSyncing && isOnline) {
     return null; // Không cần hiển thị khi mọi thứ đã sync
   }
@@ -39,8 +43,8 @@ export function SyncIndicator({ pendingCount, isSyncing, isOnline }: SyncIndicat
     if (pendingCount > 0) {
       return {
         icon: 'cloud-queue' as const,
-        color: Brand.accent,
-        bg: 'rgba(34, 211, 238, 0.12)',
+        color: theme.tint,
+        bg: theme.border,
         label: `${pendingCount} chờ đồng bộ`,
       };
     }

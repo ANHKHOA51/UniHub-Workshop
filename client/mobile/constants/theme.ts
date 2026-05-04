@@ -8,15 +8,15 @@ import { Platform } from 'react-native';
 
 // ─── Brand Palette ──────────────────────────────────────────
 export const Brand = {
-  /** Primary — vibrant indigo-blue */
-  primary: '#6366F1',
-  primaryLight: '#818CF8',
-  primaryDark: '#4F46E5',
+  /** Primary — Web's dark slate */
+  primary: '#111827',
+  primaryLight: '#F3F4F6', /* Màu sáng dùng cho các nút/icon nổi bật trong Dark Mode */
+  primaryDark: '#030712',
 
-  /** Accent — electric cyan */
-  accent: '#22D3EE',
-  accentLight: '#67E8F9',
-  accentDark: '#06B6D4',
+  /** Accent — Web's secondary */
+  accent: '#1F2937',
+  accentLight: '#4B5563',
+  accentDark: '#111827',
 
   /** Success — emerald green */
   success: '#10B981',
@@ -44,15 +44,15 @@ const tintColorDark = Brand.primaryLight;
 
 export const Colors = {
   light: {
-    text: '#1E1B4B',
+    text: '#111827',
     textSecondary: '#6B7280',
     textTertiary: '#9CA3AF',
-    background: '#F8FAFC',
-    backgroundSecondary: '#F1F5F9',
+    background: '#F9FAFB',
+    backgroundSecondary: '#F3F4F6',
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
-    border: '#E2E8F0',
-    borderLight: '#F1F5F9',
+    border: '#E5E7EB',
+    borderLight: '#F3F4F6',
     tint: tintColorLight,
     icon: '#6B7280',
     tabIconDefault: '#9CA3AF',
@@ -60,18 +60,18 @@ export const Colors = {
     overlay: 'rgba(0, 0, 0, 0.5)',
   },
   dark: {
-    text: '#F1F5F9',
-    textSecondary: '#94A3B8',
-    textTertiary: '#64748B',
-    background: '#0F0D23',
-    backgroundSecondary: '#1A1833',
-    surface: '#1E1B3A',
-    surfaceElevated: '#252347',
-    border: '#2D2A52',
-    borderLight: '#1E1B3A',
+    text: '#FFFFFF',
+    textSecondary: '#D1D5DB', /* Sáng hơn để dễ đọc */
+    textTertiary: '#9CA3AF',  /* Sáng hơn để dễ đọc */
+    background: '#030712',
+    backgroundSecondary: '#111827',
+    surface: '#1F2937',
+    surfaceElevated: '#374151',
+    border: '#374151',
+    borderLight: '#1F2937',
     tint: tintColorDark,
-    icon: '#94A3B8',
-    tabIconDefault: '#64748B',
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
     tabIconSelected: tintColorDark,
     overlay: 'rgba(0, 0, 0, 0.7)',
   },
@@ -92,11 +92,11 @@ export const Spacing = {
 
 // ─── Border Radius ──────────────────────────────────────────
 export const Radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  '2xl': 24,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  '2xl': 16,
   full: 999,
 } as const;
 

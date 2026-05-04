@@ -195,8 +195,8 @@ export default function WorkshopDetailScreen() {
 
   const renderCheckinItem = ({ item }: { item: Registration }) => (
     <View style={[styles.checkinItem, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <View style={styles.checkinAvatar}>
-        <Text style={styles.checkinAvatarText}>
+      <View style={[styles.checkinAvatar, { backgroundColor: theme.tint }]}>
+        <Text style={[styles.checkinAvatarText, { color: colorScheme === 'dark' ? '#000000' : '#FFFFFF' }]}>
           {item.studentName.charAt(0).toUpperCase()}
         </Text>
       </View>
@@ -263,13 +263,13 @@ export default function WorkshopDetailScreen() {
           <Text style={[styles.statLabel, { color: theme.textTertiary }]}>Đã check-in</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.statValue, { color: Brand.primary }]}>
+          <Text style={[styles.statValue, { color: theme.text }]}>
             {workshop.registeredCount}
           </Text>
           <Text style={[styles.statLabel, { color: theme.textTertiary }]}>Đã đăng ký</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.statValue, { color: Brand.accent }]}>
+          <Text style={[styles.statValue, { color: theme.text }]}>
             {checkinProgress}%
           </Text>
           <Text style={[styles.statLabel, { color: theme.textTertiary }]}>Tỉ lệ</Text>
@@ -283,7 +283,7 @@ export default function WorkshopDetailScreen() {
               styles.progressFill,
               {
                 width: `${checkinProgress}%`,
-                backgroundColor: checkinProgress > 80 ? Brand.success : Brand.primary,
+                backgroundColor: checkinProgress > 80 ? Brand.success : theme.tint,
               },
             ]}
           />
@@ -324,9 +324,9 @@ export default function WorkshopDetailScreen() {
       <TouchableOpacity
         onPress={handleOpenScanner}
         activeOpacity={0.85}
-        style={[styles.fabButton, { backgroundColor: Brand.primary, bottom: insets.bottom + Spacing.lg }]}
+        style={[styles.fabButton, { backgroundColor: theme.tint, bottom: insets.bottom + Spacing.lg }]}
       >
-        <MaterialIcons name="qr-code-scanner" size={28} color="#FFFFFF" />
+        <MaterialIcons name="qr-code-scanner" size={28} color={colorScheme === 'dark' ? '#000000' : '#FFFFFF'} />
       </TouchableOpacity>
 
       <Modal
@@ -388,8 +388,8 @@ export default function WorkshopDetailScreen() {
           ) : (
             <View style={[styles.modalContainer, { alignItems: 'center', justifyContent: 'center' }]}>
               <Text style={{ color: '#FFF', marginBottom: Spacing.lg }}>Không có quyền truy cập camera</Text>
-              <TouchableOpacity onPress={handleCloseScanner} style={[styles.scanButtonFallback, { backgroundColor: Brand.primary }]}>
-                <Text style={styles.scanButtonText}>Đóng</Text>
+              <TouchableOpacity onPress={handleCloseScanner} style={[styles.scanButtonFallback, { backgroundColor: theme.tint }]}>
+                <Text style={[styles.scanButtonText, { color: colorScheme === 'dark' ? '#000000' : '#FFFFFF' }]}>Đóng</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -494,12 +494,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Brand.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkinAvatarText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -584,7 +582,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: Brand.primary,
+    borderColor: '#FFFFFF', /* Sáng rõ trên nền camera */
     borderWidth: 4,
   },
   cornerTL: {
@@ -610,9 +608,9 @@ const styles = StyleSheet.create({
   scanLine: {
     width: '100%',
     height: 3,
-    backgroundColor: Brand.primary,
+    backgroundColor: '#FFFFFF', /* Sáng rõ trên nền camera */
     opacity: 0.9,
-    ...Shadows.glow(Brand.primary),
+    ...Shadows.glow('#FFFFFF'),
   },
   modalScanHint: {
     ...Typography.body,

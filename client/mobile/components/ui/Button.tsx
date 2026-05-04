@@ -13,7 +13,8 @@ import {
   TextStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Brand, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
+import { Brand, Colors, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface ButtonProps {
   title: string;
@@ -36,16 +37,36 @@ export function Button({
   icon,
   style,
 }: ButtonProps) {
+  const colorScheme = useColorScheme() ?? 'dark';
+  const theme = Colors[colorScheme];
+
   const handlePress = () => {
     if (loading || disabled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
 
+  const dynamicButtonStyles: ViewStyle[] = [];
+  const dynamicTextStyles: TextStyle[] = [];
+
+  if (variant === 'primary') {
+    dynamicButtonStyles.push({ backgroundColor: theme.tint });
+    dynamicTextStyles.push({ color: colorScheme === 'dark' ? '#000000' : '#FFFFFF' });
+  } else if (variant === 'secondary') {
+    dynamicButtonStyles.push({ backgroundColor: 'transparent', borderWidth: 1.5, borderColor: theme.tint });
+    dynamicTextStyles.push({ color: theme.tint });
+  } else if (variant === 'ghost') {
+    dynamicButtonStyles.push({ backgroundColor: 'transparent' });
+    dynamicTextStyles.push({ color: theme.tint });
+  } else if (variant === 'danger') {
+    dynamicButtonStyles.push({ backgroundColor: Brand.error });
+    dynamicTextStyles.push({ color: '#FFFFFF' });
+  }
+
   const buttonStyles: ViewStyle[] = [
     styles.base,
     styles[`size_${size}`],
-    styles[`variant_${variant}`],
+    ...dynamicButtonStyles,
     (disabled || loading) && styles.disabled,
     style as ViewStyle,
   ].filter(Boolean) as ViewStyle[];
@@ -53,7 +74,7 @@ export function Button({
   const textStyles: TextStyle[] = [
     styles.text,
     styles[`textSize_${size}`],
-    styles[`textVariant_${variant}`],
+    ...dynamicTextStyles,
     (disabled || loading) && styles.textDisabled,
   ].filter(Boolean) as TextStyle[];
 
@@ -67,7 +88,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'ghost' || variant === 'secondary' ? Brand.primary : '#fff'}
+          color={variant === 'ghost' || variant === 'secondary' ? theme.tint : (colorScheme === 'dark' ? '#000000' : '#FFFFFF')}
         />
       ) : (
         <>
@@ -94,15 +115,7 @@ const styles = StyleSheet.create({
   size_md: { height: 48, paddingHorizontal: Spacing.xl },
   size_lg: { height: 56, paddingHorizontal: Spacing['2xl'] },
 
-  // Variants
-  variant_primary: { backgroundColor: Brand.primary },
-  variant_secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: Brand.primary,
-  },
-  variant_danger: { backgroundColor: Brand.error },
-  variant_ghost: { backgroundColor: 'transparent' },
+  // Variants handled dynamically via theme now
 
   // Disabled
   disabled: { opacity: 0.5 },
@@ -116,10 +129,7 @@ const styles = StyleSheet.create({
   textSize_md: { fontSize: 16 },
   textSize_lg: { fontSize: 18 },
 
-  textVariant_primary: { color: '#FFFFFF' },
-  textVariant_secondary: { color: Brand.primary },
-  textVariant_danger: { color: '#FFFFFF' },
-  textVariant_ghost: { color: Brand.primary },
+  // Text Variants handled dynamically
 
   textDisabled: { opacity: 0.7 },
 });

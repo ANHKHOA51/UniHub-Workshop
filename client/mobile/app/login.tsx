@@ -19,7 +19,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Brand, Colors, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
 
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 export default function LoginScreen() {
+  const colorScheme = useColorScheme() ?? 'dark';
+  const theme = Colors[colorScheme];
   const { isAuthenticated, isLoading: authLoading, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,7 +55,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Background gradient */}
       <View style={styles.bgGradientTop}>
         <View style={[styles.glowOrb, styles.orbPrimary]} />
@@ -65,16 +69,16 @@ export default function LoginScreen() {
         <View style={styles.content}>
           {/* Logo & Header */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <MaterialIcons name="qr-code-scanner" size={40} color={Brand.primary} />
+            <View style={[styles.logoContainer, { borderColor: theme.borderLight }]}>
+              <MaterialIcons name="qr-code-scanner" size={40} color={theme.tint} />
             </View>
-            <Text style={styles.appName}>UniHub</Text>
-            <Text style={styles.appSubtitle}>Workshop Check-in</Text>
+            <Text style={[styles.appName, { color: theme.text }]}>UniHub</Text>
+            <Text style={[styles.appSubtitle, { color: theme.textSecondary }]}>Workshop Check-in</Text>
             <Text style={styles.roleLabel}>Dành cho Nhân sự check-in</Text>
           </View>
 
           {/* Login Form */}
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {/* Error message */}
             {error && (
               <View style={styles.errorBox}>
@@ -86,10 +90,10 @@ export default function LoginScreen() {
             {/* Email Input */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
-              <View style={styles.inputContainer}>
-                <MaterialIcons name="email" size={20} color="#64748B" style={styles.inputIcon} />
+              <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                <MaterialIcons name="email" size={20} color={theme.icon} style={styles.inputIcon} />
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.text }]}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="staff@university.edu.vn"
@@ -104,10 +108,10 @@ export default function LoginScreen() {
             {/* Password Input */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Mật khẩu</Text>
-              <View style={styles.inputContainer}>
-                <MaterialIcons name="lock" size={20} color="#64748B" style={styles.inputIcon} />
+              <View style={[styles.inputContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+                <MaterialIcons name="lock" size={20} color={theme.icon} style={styles.inputIcon} />
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.text }]}
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••••"
@@ -117,7 +121,7 @@ export default function LoginScreen() {
                 <MaterialIcons
                   name={showPassword ? 'visibility' : 'visibility-off'}
                   size={20}
-                  color="#64748B"
+                  color={theme.icon}
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.inputIconRight}
                 />
@@ -265,7 +269,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.md,
     ...Typography.body,
-    color: '#F1F5F9',
   },
   loginButton: {
     marginTop: Spacing.sm,

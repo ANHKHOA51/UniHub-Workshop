@@ -19,11 +19,11 @@ const UniHubDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: '#0F0D23',
-    card: '#1E1B3A',
-    text: '#F1F5F9',
-    border: '#2D2A52',
-    primary: '#6366F1',
+    background: '#030712',
+    card: '#1F2937',
+    text: '#F9FAFB',
+    border: '#374151',
+    primary: '#F3F4F6',
   },
 };
 
@@ -31,11 +31,11 @@ const UniHubLightTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#F8FAFC',
+    background: '#F9FAFB',
     card: '#FFFFFF',
-    text: '#1E1B4B',
-    border: '#E2E8F0',
-    primary: '#6366F1',
+    text: '#111827',
+    border: '#E5E7EB',
+    primary: '#111827',
   },
 };
 
@@ -79,7 +79,7 @@ function RootLayoutNav() {
         <Stack.Screen name="workshop/[id]" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }

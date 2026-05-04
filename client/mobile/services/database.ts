@@ -276,7 +276,7 @@ export async function seedMockData(): Promise<void> {
       endTime: '10:00',
       maxSlots: 50,
       registeredCount: 45,
-      checkedInCount: 0,
+      checkedInCount: 3,
     },
     {
       id: 'ws-002',
@@ -321,9 +321,9 @@ export async function seedMockData(): Promise<void> {
 
   const mockRegistrations: Registration[] = [
     // Workshop 1
-    { id: 'reg-001', workshopId: 'ws-001', studentName: 'Nguyễn Văn An', studentEmail: 'an.nv@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-002', workshopId: 'ws-001', studentName: 'Trần Thị Bình', studentEmail: 'binh.tt@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-003', workshopId: 'ws-001', studentName: 'Lê Hoàng Cường', studentEmail: 'cuong.lh@student.edu', checkedInAt: null, pendingSync: false },
+    { id: 'reg-001', workshopId: 'ws-001', studentName: 'Nguyễn Văn An', studentEmail: 'an.nv@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), pendingSync: false },
+    { id: 'reg-002', workshopId: 'ws-001', studentName: 'Trần Thị Bình', studentEmail: 'binh.tt@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), pendingSync: false },
+    { id: 'reg-003', workshopId: 'ws-001', studentName: 'Lê Hoàng Cường', studentEmail: 'cuong.lh@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(), pendingSync: true },
     { id: 'reg-004', workshopId: 'ws-001', studentName: 'Phạm Thị Dung', studentEmail: 'dung.pt@student.edu', checkedInAt: null, pendingSync: false },
     { id: 'reg-005', workshopId: 'ws-001', studentName: 'Hoàng Minh Đức', studentEmail: 'duc.hm@student.edu', checkedInAt: null, pendingSync: false },
     // Workshop 2
