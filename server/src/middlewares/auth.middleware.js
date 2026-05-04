@@ -20,7 +20,7 @@ export async function isAuthenticated(req, res, next) {
     }
 };
 
-export async function isAuthorized(role) {
+export function isAuthorized(allowedRoles) {
     return (req, res, next) => {
         if (!req.user || !allowedRoles.includes(req.user.role)) {
             return res.status(403).json({
