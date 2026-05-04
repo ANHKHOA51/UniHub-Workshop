@@ -17,6 +17,10 @@ export const RegistrationModel = {
         return db('registrations').where({ workshop_id: workshopId });
     },
 
+    async findByUserAndWorkshop(userId, workshopId) {
+        return db('registrations').where({ user_id: userId, workshop_id: workshopId }).first();
+    },
+
     async create(data) {
         const [registration] = await db('registrations').insert(data).returning('*');
         return registration;

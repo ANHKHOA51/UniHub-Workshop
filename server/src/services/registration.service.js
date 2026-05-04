@@ -36,6 +36,13 @@ export const createRegistration = async (userId, workshopId) => {
         throw error;
     }
 
+    const existing = await RegistrationModel.findByUserAndWorkshop(userId, workshopId);
+    if (existing && existing.status !== 'canceled') {
+        const error = new Error('You have already registered for this workshop');
+        error.status = 400;
+        throw error;
+    }
+
     const seatKey = `workshop:${workshopId}:participants`;
     const maxSeats = workshop.max_participants || workshop.maxParticipants || 50;
 
@@ -73,6 +80,13 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
     if (!workshop) {
         const error = new Error('Workshop not found');
         error.status = 404;
+        throw error;
+    }
+
+    const existing = await RegistrationModel.findByUserAndWorkshop(userId, workshopId);
+    if (existing && existing.status !== 'canceled') {
+        const error = new Error('You have already registered for this workshop');
+        error.status = 400;
         throw error;
     }
 
@@ -172,7 +186,22 @@ export const handlePaymentWebhook = async (payload) => {
 
         if (idempotencyKey) {
             const redisKey = `idempotency:${idempotencyKey}`;
-            await redisClient.expire(redisKey, 86400);
+            const finalResponse = {
+                message: 'Registration and payment successful',
+                data: {
+                    registrationId: orderId,
+                    status: 'success',
+                    qrCodeData
+                }
+            };
+            const successData = {
+                status: 'success',
+                statusCode: 200,
+                response: finalResponse
+            };
+            await redisClient.set(redisKey, JSON.stringify(successData), {
+                EX: 86400
+            });
         }
 
         if (userId) {
