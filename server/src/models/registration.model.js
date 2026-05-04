@@ -29,7 +29,7 @@ export const RegistrationModel = {
     async update(id, data) {
         const [registration] = await db('registrations')
             .where({ id })
-            .update({ ...data, updated_at: db.fn.now() })
+            .update(data)
             .returning('*');
         return registration;
     },
@@ -37,7 +37,7 @@ export const RegistrationModel = {
     async updateStatus(id, status) {
         const [registration] = await db('registrations')
             .where({ id })
-            .update({ status, updated_at: db.fn.now() })
+            .update({ status })
             .returning('*');
         return registration;
     }

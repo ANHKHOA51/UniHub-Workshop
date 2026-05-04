@@ -17,7 +17,7 @@ export const WorkshopModel = {
     async update(id, data) {
         const [workshop] = await db('workshops')
             .where({ id })
-            .update({ ...data, updated_at: db.fn.now() })
+            .update(data)
             .returning('*');
         return workshop;
     },

@@ -17,7 +17,7 @@ export const PaymentModel = {
     async update(id, data) {
         const [payment] = await db('payments')
             .where({ id })
-            .update({ ...data, updated_at: db.fn.now() })
+            .update(data)
             .returning('*');
         return payment;
     },
@@ -25,7 +25,7 @@ export const PaymentModel = {
     async updateStatus(id, status) {
         const [payment] = await db('payments')
             .where({ id })
-            .update({ status, updated_at: db.fn.now() })
+            .update({ status })
             .returning('*');
         return payment;
     }

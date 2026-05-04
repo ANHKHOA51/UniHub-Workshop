@@ -17,7 +17,7 @@ export const UserModel = {
     async update(id, data) {
         const [user] = await db('users')
             .where({ id })
-            .update({ ...data, updated_at: db.fn.now() })
+            .update(data)
             .returning('*');
         return user;
     }
