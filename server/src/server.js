@@ -3,6 +3,7 @@ import 'dotenv/config.js';
 import { connectRedis } from './utils/redis.client.js';
 import db from './models/db.js';
 import ngrok from '@ngrok/ngrok';
+import { initNightlySync } from './jobs/sync_csv.job.js';
 
 const port = process.env.PORT || 3000;
 
@@ -22,16 +23,24 @@ const startServer = async () => {
         process.exit(1);
     }
 
+    try {
+        initNightlySync();
+        console.log('Sync job scheduled to run daily at 02:00 AM');
+    } catch (error) {
+        console.error('Failed run cron job', error);
+        process.exit(1);
+    }
+
     app.listen(port, async () => {
         console.log(`Server is running on port ${port}`);
 
         // expose đúng port app
-        // const listener = await ngrok.connect({
-        //     addr: port,
-        //     authtoken_from_env: true
-        // });
+        const listener = await ngrok.connect({
+            addr: port,
+            authtoken_from_env: true
+        });
 
-        // console.log(`Ngrok URL: ${listener.url()}`);
+        console.log(`Ngrok URL: ${listener.url()}`);
     });
 };
 

@@ -1,84 +1,108 @@
 import { Worker } from 'bullmq';
 import fs from 'fs';
 import csv from 'csv-parser';
+import { UserModel } from '../models/user.model.js';
 
 const redisConnection = {
     url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 };
 
+const BATCH_SIZE = 1000;
+
 export const syncCSVWorker = new Worker('sync-csv', async (job) => {
-    console.log(`CSV Worker Processing job ${job.id}...`);
+    console.log(`Processing job ${job.id}...`);
     const { filePath } = job.data || {};
 
-    if (!filePath) {
-        throw new Error('Missing filePath in job data');
-    }
-
+    if (!filePath) throw new Error("Missing filePath");
     if (!fs.existsSync(filePath)) {
-        throw new Error(`File not found at path: ${filePath}`);
+        throw new Error(`File not found: ${filePath}`);
     }
 
-    try {
-        return new Promise((resolve, reject) => {
-            const results = [];
-            const REQUIRED_HEADERS = ['mssv', 'email', 'name'];
-            let headersValidated = false;
+    const REQUIRED_HEADERS = ["mssv", "email", "name"];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-            const stream = fs.createReadStream(filePath)
-                .pipe(csv({
-                    mapHeaders: ({ header }) => header.toLowerCase().trim()
-                }));
+    let batch = [];
+    let headersValidated = false;
+    let totalProcessed = 0;
 
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const stream = fs.createReadStream(filePath)
+        .pipe(
+            csv({
+                mapHeaders: ({ header }) => header.toLowerCase().trim(),
+            })
+        );
 
-            stream.on('headers', (headers) => {
-                const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
-                const missing = REQUIRED_HEADERS.filter(h => !normalizedHeaders.includes(h));
+    stream.on("headers", (headers) => {
+        const normalized = headers.map((h) => h.toLowerCase().trim());
+        const missing = REQUIRED_HEADERS.filter((h) => !normalized.includes(h));
 
-                if (missing.length > 0) {
-                    const error = new Error(`Invalid CSV file structure. Missing columns: ${missing.join(', ')}`);
-                    stream.destroy(error);
-                    return;
-                }
-                headersValidated = true;
-                console.log('CSV Headers validated successfully:', headers);
-            });
+        if (missing.length > 0) {
+            throw new Error(`Missing columns: ${missing.join(", ")}`);
+        }
 
-            stream.on('data', (data) => {
-                const { email } = data;
-                if (!emailRegex.test(email)) {
-                    console.warn(`[CSV Worker] Skipping row with invalid email: ${email}`);
-                    return;
-                }
-                results.push(data);
-            });
+        headersValidated = true;
+        console.log("Headers OK:", headers);
+    });
 
-            stream.on('end', () => {
-                if (!headersValidated && results.length === 0) {
-                    return reject(new Error('The CSV file is empty or lacks a valid header.'));
-                }
-                console.log("Processed CSV data:", results);
-                resolve(results);
-            });
+    for await (const row of stream) {
+        if (!headersValidated) {
+            throw new Error("Header not validated");
+        }
 
-            stream.on('error', (error) => {
-                console.error(`[CSV Worker] Stream error: ${error.message}`);
-                reject(error);
-            });
-        })
-    } catch (error) {
-        console.error(`CSV Worker Error processing job ${job.id}:`, error.message);
-        throw error;
+        // validate email
+        if (!emailRegex.test(row.email)) {
+            console.warn(`Invalid email, skip: ${row.email}`);
+            continue;
+        }
+
+        batch.push({
+            mssv: row.mssv,
+            email: row.email,
+            name: row.name,
+            password: generatePassword(row.name, row.mssv),
+            role: 'STUDENT'
+        });
+
+        if (batch.length >= BATCH_SIZE) {
+            await processBatch(batch);
+            totalProcessed += batch.length;
+            batch = [];
+            console.log(`[BATCH] Processed ${batch.length} records`);
+        }
     }
+
+    if (batch.length > 0) {
+        await processBatch(batch);
+        totalProcessed += batch.length;
+    }
+
+    console.log(`Done job ${job.id}, total processed: ${totalProcessed}`);
+
+    return { totalProcessed };
 }, {
     connection: redisConnection,
-    concurrency: 1, // Process one CSV file at a time per worker instance
-    settings: {
-        lockDuration: 60000,
-        lockRenewTime: 30000,
-        maxStalledCount: 1
-    }
-});
+    concurrency: 1
+})
+
+async function processBatch(batch) {
+    UserModel.upsertMany(batch);
+}
+
+
+// "Nguyen Van A" - "21127402"
+// "nguyenvana7402"
+function generatePassword(name, mssv) {
+    if (!name || !mssv) return null;
+
+    const last4 = mssv.slice(-4);
+
+    const normalizedName = name
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "");
+
+    return normalizedName + last4;
+}
 
 // Worker event listeners
 syncCSVWorker.on('completed', (job) => {

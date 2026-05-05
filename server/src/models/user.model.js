@@ -14,6 +14,13 @@ export const UserModel = {
         return user;
     },
 
+    async upsertMany(data) {
+        await db('users')
+            .insert(data)
+            .onConflict('mssv')
+            .merge();
+    },
+
     async update(id, data) {
         const [user] = await db('users')
             .where({ id })
