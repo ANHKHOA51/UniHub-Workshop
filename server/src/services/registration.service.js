@@ -28,8 +28,9 @@ const createMoMoRequest = async (registrationId, amount, extraData = '', worksho
     const requestType = 'captureWallet';
     const lang = 'vi';
     const amountStr = String(Math.round(Number(amount)));
+    const orderInfo = `Payment for workshop registration ${registrationId}`;
 
-    const rawSignature = `accessKey=${accessKey}&amount=${amountStr}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}&requestType=${requestType}&redirectUrl=${redirectUrl}&timestamp=${timestamp}`;
+    const rawSignature = `accessKey=${accessKey}&amount=${amountStr}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
 
     const signature = crypto
         .createHmac('sha256', secretKey)
@@ -44,13 +45,12 @@ const createMoMoRequest = async (registrationId, amount, extraData = '', worksho
         requestId,
         amount: amountStr,
         orderId,
-        orderInfo: `Payment for workshop registration ${registrationId}`,
+        orderInfo,
         redirectUrl,
         ipnUrl,
         requestType,
         extraData,
         signature,
-        timestamp,
         lang
     };
 
@@ -60,14 +60,15 @@ const createMoMoRequest = async (registrationId, amount, extraData = '', worksho
             timeout: 3000
         });
 
-        if (response.data.errorCode === 0) {
+        if (response.data.resultCode === 0) {
             return {
                 payUrl: response.data.payUrl,
                 orderId,
                 timestamp
             };
         } else {
-            throw new Error(`MoMo error (${response.data.errorCode}): ${response.data.message}`);
+            const resultCode = response.data.resultCode ?? response.data.errorCode ?? 'unknown';
+            throw new Error(`MoMo error (${resultCode}): ${response.data.message}`);
         }
     } catch (error) {
         if (error.code === 'ECONNABORTED') throw new Error('MoMo connection timeout');
