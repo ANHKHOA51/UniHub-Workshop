@@ -19,14 +19,53 @@ export const syncCSVWorker = new Worker('sync-csv', async (job) => {
     }
 
     try {
-        const results = [];
+        return new Promise((resolve, reject) => {
+            const results = [];
+            const REQUIRED_HEADERS = ['mssv', 'email', 'name'];
+            let headersValidated = false;
 
-        fs.createReadStream(filePath)
-            .pipe(csv())
-            .on('data', (data) => results.push(data))
-            .on('end', () => {
-                console.log(results);
+            const stream = fs.createReadStream(filePath)
+                .pipe(csv({
+                    mapHeaders: ({ header }) => header.toLowerCase().trim()
+                }));
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            stream.on('headers', (headers) => {
+                const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
+                const missing = REQUIRED_HEADERS.filter(h => !normalizedHeaders.includes(h));
+
+                if (missing.length > 0) {
+                    const error = new Error(`Invalid CSV file structure. Missing columns: ${missing.join(', ')}`);
+                    stream.destroy(error);
+                    return;
+                }
+                headersValidated = true;
+                console.log('CSV Headers validated successfully:', headers);
             });
+
+            stream.on('data', (data) => {
+                const { email } = data;
+                if (!emailRegex.test(email)) {
+                    console.warn(`[CSV Worker] Skipping row with invalid email: ${email}`);
+                    return;
+                }
+                results.push(data);
+            });
+
+            stream.on('end', () => {
+                if (!headersValidated && results.length === 0) {
+                    return reject(new Error('The CSV file is empty or lacks a valid header.'));
+                }
+                console.log("Processed CSV data:", results);
+                resolve(results);
+            });
+
+            stream.on('error', (error) => {
+                console.error(`[CSV Worker] Stream error: ${error.message}`);
+                reject(error);
+            });
+        })
     } catch (error) {
         console.error(`CSV Worker Error processing job ${job.id}:`, error.message);
         throw error;
