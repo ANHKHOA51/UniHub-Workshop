@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.use('/auth', authRouter);
 router.use('/health', healthRouter);
-router.use('/registrations', isAuthenticated, registrationRouter);
+router.use('/registrations', registrationRouter);
 router.use('/workshops', isAuthenticated, workshopRouter);
 
 export default router;

@@ -25,7 +25,7 @@ Idempotency key để bảo vệ hệ thống.
   - Nếu thanh toán thành công, cập
     nhật lại trạng thái trên bảng `Payment` thành `finished` và trạng thái đăng ký của sinh viên thành `success`, đồng thời gửi thông báo qua app hoặc email.
     Mã QR sẽ được tạo và thêm vào thông tin đăng ký của sinh viên.
-  - Nếu thanh toán thất bại, chuyển trạng thái `Payment` thành `failed` và trạng thái đăng ký thành `canceled`, đồng thời giảm số người tham gia
+  - Nếu thanh toán thất bại, chuyển trạng thái `Payment` thành `failed` và xoá đăng ký mới tạo, đồng thời giảm số người tham gia
     workshop đi 1.
 
 ## Kịch bản lỗi:

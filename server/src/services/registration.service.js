@@ -6,19 +6,76 @@ import { EmailNotificationMethod } from './email.service.js';
 import { generateQrData } from '../utils/qr.helper.js';
 import redisClient from '../utils/redis.client.js';
 import CircuitBreaker from 'opossum';
+import crypto from 'crypto';
+import axios from 'axios';
 
 const notificationService = new NotificationService();
 notificationService.subscribe(new EmailNotificationMethod());
 
-const mockMoMoCall = async (registrationId, amount, extraData = '') => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (Math.random() < 0.2) {
-        throw new Error('MoMo connection timeout or failure');
+const createMoMoRequest = async (registrationId, amount, extraData = '', workshopId) => {
+    const partnerCode = process.env.MOMO_PARTNER_CODE;
+    const accessKey = process.env.MOMO_ACCESS_KEY;
+    const secretKey = process.env.MOMO_SECRET_KEY;
+    const endpoint = 'https://test-payment.momo.vn/v2/gateway/api/create';
+
+    const timestamp = Date.now();
+    const orderId = `${registrationId}-${timestamp}`;
+    const requestId = `${partnerCode}-${timestamp}`;
+
+    const ipnUrl = `${process.env.APP_URL}/api/registrations/webhook/momo`;
+    const redirectUrl = `${process.env.MOMO_REDIRECT_URL}`;
+
+    const requestType = 'captureWallet';
+    const lang = 'vi';
+    const amountStr = String(Math.round(Number(amount)));
+
+    const rawSignature = `accessKey=${accessKey}&amount=${amountStr}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}&requestType=${requestType}&redirectUrl=${redirectUrl}&timestamp=${timestamp}`;
+
+    const signature = crypto
+        .createHmac('sha256', secretKey)
+        .update(rawSignature)
+        .digest('hex');
+
+    const requestBody = {
+        partnerCode,
+        partnerName: 'UniHub Workshop',
+        partnerUserId: registrationId,
+        accessKey,
+        requestId,
+        amount: amountStr,
+        orderId,
+        orderInfo: `Payment for workshop registration ${registrationId}`,
+        redirectUrl,
+        ipnUrl,
+        requestType,
+        extraData,
+        signature,
+        timestamp,
+        lang
+    };
+
+    try {
+        const response = await axios.post(endpoint, requestBody, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 3000
+        });
+
+        if (response.data.errorCode === 0) {
+            return {
+                payUrl: response.data.payUrl,
+                orderId,
+                timestamp
+            };
+        } else {
+            throw new Error(`MoMo error (${response.data.errorCode}): ${response.data.message}`);
+        }
+    } catch (error) {
+        if (error.code === 'ECONNABORTED') throw new Error('MoMo connection timeout');
+        throw error;
     }
-    return { payUrl: `https://test-payment.momo.vn/v2/gateway/api/create?orderId=${registrationId}&amount=${amount}` };
 };
 
-const momoBreaker = new CircuitBreaker(mockMoMoCall, {
+const momoBreaker = new CircuitBreaker(createMoMoRequest, {
     timeout: 3000,
     errorThresholdPercentage: 50,
     resetTimeout: 30000
@@ -112,7 +169,7 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
 
     try {
         const extraData = Buffer.from(JSON.stringify({ userId, workshopId, idempotencyKey })).toString('base64');
-        const response = await momoBreaker.fire(id, workshop.price, extraData);
+        const response = await momoBreaker.fire(id, workshop.price, extraData, workshopId);
         payUrl = response.payUrl;
 
         await PaymentModel.create({
@@ -121,6 +178,7 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
             status: 'pending'
         });
     } catch (err) {
+        console.log(err);
         await cancelRegistration(id, workshopId);
         const error = new Error('Payment gateway is currently unavailable');
         error.status = 503;
@@ -140,7 +198,7 @@ export const cancelRegistration = async (registrationId, workshopId) => {
         await redisClient.decr(seatKey);
     }
     if (registrationId) {
-        await RegistrationModel.updateStatus(registrationId, 'canceled');
+        await RegistrationModel.delete(registrationId);
 
         const payments = await PaymentModel.findByRegistrationId(registrationId);
         for (const payment of payments) {
@@ -169,15 +227,17 @@ export const handlePaymentWebhook = async (payload) => {
         }
     }
 
-    if (resultCode === 0) {
-        const qrCodeData = generateQrData(orderId.toString());
+    const registrationId = orderId.split('-')[0];
 
-        await RegistrationModel.update(orderId, {
+    if (resultCode === 0) {
+        const qrCodeData = generateQrData(registrationId.toString());
+
+        await RegistrationModel.update(registrationId, {
             qr_code: qrCodeData,
             status: 'success'
         });
 
-        const payments = await PaymentModel.findByRegistrationId(orderId);
+        const payments = await PaymentModel.findByRegistrationId(registrationId);
         for (const payment of payments) {
             if (payment.status === 'pending') {
                 await PaymentModel.updateStatus(payment.id, 'finished');
@@ -189,7 +249,7 @@ export const handlePaymentWebhook = async (payload) => {
             const finalResponse = {
                 message: 'Registration and payment successful',
                 data: {
-                    registrationId: orderId,
+                    registrationId: registrationId,
                     status: 'success',
                     qrCodeData
                 }
@@ -212,15 +272,15 @@ export const handlePaymentWebhook = async (payload) => {
         }
 
         return {
-            id: orderId,
+            id: registrationId,
             status: 'success',
             qrCodeData,
             message: 'Payment completed successfully'
         };
     } else {
-        await cancelRegistration(orderId, workshopId);
+        await cancelRegistration(registrationId, workshopId);
         return {
-            id: orderId,
+            id: registrationId,
             status: 'canceled',
             message: 'Payment failed or canceled'
         };

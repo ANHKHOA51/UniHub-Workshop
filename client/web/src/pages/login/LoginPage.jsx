@@ -1,21 +1,35 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
+import * as authApi from '../../services/authApi';
 import './LoginPage.css';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Mock credentials check
-    if (email === 'admin@unihub.com' && password === '123') {
-      navigate('/admin/workshops');
-    } else {
-      // Default to regular workshops for any other login (simulating user login)
-      navigate('/workshops');
+    setErrorMsg('');
+    setLoading(true);
+
+    try {
+      const data = await authApi.login(email, password);
+
+      localStorage.setItem('token', data.tokens.accessToken);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      if (data.user.role === 'admin') {
+        navigate('/admin/workshops');
+      } else {
+        navigate('/workshops');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Không thể kết nối tới server. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,6 +67,12 @@ const LoginPage = () => {
               required 
             />
           </div>
+
+          {errorMsg && (
+            <div className="form-error" style={{ color: '#ff6b6b', fontSize: '0.875rem', marginBottom: '12px' }}>
+              {errorMsg}
+            </div>
+          )}
           
           <div className="form-options">
             <label className="remember-me">
@@ -61,8 +81,8 @@ const LoginPage = () => {
             </label>
           </div>
           
-          <button type="submit" className="login-button">
-            Đăng Nhập
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? 'Đang đăng nhập...' : 'Đăng Nhập'}
           </button>
         </form>
       </div>

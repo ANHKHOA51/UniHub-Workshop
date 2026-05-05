@@ -42,6 +42,9 @@ export const WorkshopModel = {
         return db('workshops')
             .join('registrations', 'workshops.id', 'registrations.workshop_id')
             .where('registrations.user_id', userId)
-            .select('workshops.*');
+            .whereIn('registrations.status', ['success', 'confirmed'])
+            .select('workshops.*', 'registrations.status', 'registrations.qr_code')
+            .select(db.raw('(SELECT COUNT(*)::integer FROM registrations WHERE workshop_id = workshops.id) as registered_count'))
+            .groupBy('workshops.id', 'registrations.status', 'registrations.qr_code');
     }
 };

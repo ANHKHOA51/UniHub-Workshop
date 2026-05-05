@@ -244,6 +244,14 @@
   margin-bottom: 16px;
 }
 
+.register-button.registered {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+  opacity: 1;
+  cursor: default;
+}
+
 .reg-note {
   font-size: 0.75rem;
   color: var(--text-muted);

@@ -19,9 +19,9 @@ export const emailQueue = new Queue('email', {
 });
 
 // Add email job to queue
-export const addEmailJob = async (to, message) => {
+export const addEmailJob = async (userId, message) => {
     try {
-        const job = await emailQueue.add('send-email', { to, message }, {
+        const job = await emailQueue.add('send-email', { userId, message }, {
             jobId: `email-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         });
 
