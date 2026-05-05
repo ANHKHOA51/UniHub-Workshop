@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ngrok/ngrok": "^1.7.0",
+    "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.76.5",
     "dotenv": "^17.4.2",

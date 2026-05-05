@@ -1,4 +1,5 @@
 import * as registrationService from '../services/registration.service.js';
+import crypto from 'crypto';
 
 export const registerWorkshop = async (req, res) => {
     try {
@@ -51,12 +52,18 @@ export const registerPaidWorkshop = async (req, res) => {
 export const momoWebhook = async (req, res) => {
     try {
         const payload = req.body;
+        const momoSignature = payload.signature;
+
+        const isValid = await verifyMoMoSignature(payload, momoSignature);
         
-        // Optionally verify signature here...
+        if (!isValid) {
+            return res.status(400).json({ 
+                message: 'Invalid signature'
+            });
+        }
 
         const result = await registrationService.handlePaymentWebhook(payload);
         
-        // Acknowledge webhook success to MoMo
         return res.status(200).json({ 
             message: 'Webhook processed successfully',
             data: result
@@ -66,4 +73,31 @@ export const momoWebhook = async (req, res) => {
         return res.status(500).json({ message: 'Internal Server Error' });
     }
 };
+
+async function verifyMoMoSignature(payload, momoSignature) {
+    const accessKey = process.env.MOMO_ACCESS_KEY;
+    const secretKey = process.env.MOMO_SECRET_KEY;
+
+    if (!accessKey || !secretKey) return false;
+
+    const {
+        amount,
+        extraData,
+        orderId,
+        partnerCode,
+        requestId,
+        responseTime,
+        resultCode,
+        transId
+    } = payload;
+
+    const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData || ''}&orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
+    
+    const computedSignature = crypto
+        .createHmac('sha256', secretKey)
+        .update(rawSignature)
+        .digest('hex');
+
+    return computedSignature === momoSignature;
+}
 

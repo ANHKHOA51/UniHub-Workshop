@@ -31,7 +31,8 @@ const startServer = async () => {
             authtoken_from_env: true
         });
 
-        console.log(`Ngrok URL: ${listener.url()}`);
+        process.env.APP_URL = listener.url();
+        console.log(`Ngrok URL: ${process.env.APP_URL}`);
     });
 };
 

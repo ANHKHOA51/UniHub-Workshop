@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.post(
     '/',
+    isAuthenticated,
     isAuthorized(['student']),
     rateLimiter,
     registerWorkshop
@@ -15,6 +16,7 @@ router.post(
 
 router.post(
     '/payment',
+    isAuthenticated,
     isAuthorized(['student']),
     rateLimiter,
     idempotency,

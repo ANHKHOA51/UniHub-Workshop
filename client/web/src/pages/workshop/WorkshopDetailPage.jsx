@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { useWorkshopDetail, useRegisteredWorkshops } from '../../hooks/useWorkShopData';
+import { useWorkshopDetail, useRegisteredWorkshops, useRegisterWorkshop, useRegisterPaidWorkshop } from '../../hooks/useWorkShopData';
 import { SERVER_BASE_URL } from '../../utils/constants';
 import './WorkshopDetailPage.css';
 
@@ -22,8 +22,38 @@ const WorkshopDetailPage = () => {
   const navigate = useNavigate();
   const { workshop, loading, error } = useWorkshopDetail(id);
   const { workshops: registeredList } = useRegisteredWorkshops();
+  const { mutate: registerFree, isPending: isRegisteringFree } = useRegisterWorkshop();
+  const { mutateAsync: registerPaid, isPending: isRegisteringPaid } = useRegisterPaidWorkshop();
 
   const isRegistered = registeredList.some(w => String(w.id) === String(id));
+  const isRegistering = isRegisteringFree || isRegisteringPaid;
+
+  const handleRegister = async () => {
+    if (!workshop) return;
+
+    if (workshop.price === 0) {
+      registerFree(workshop.id, {
+        onSuccess: () => {
+          alert('Đăng ký thành công!');
+        },
+        onError: (err) => {
+          alert(`Đăng ký thất bại`);
+        }
+      });
+    } else {
+      try {
+        const idempotencyKey = crypto.randomUUID();
+        const response = await registerPaid({ workshopId: workshop.id, idempotencyKey });
+        if (response.data && response.data.payUrl) {
+          window.location.href = response.data.payUrl;
+        } else {
+          alert('Không lấy được link thanh toán. Vui lòng thử lại.');
+        }
+      } catch (err) {
+        alert(`Đăng ký thất bại`);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -106,9 +136,10 @@ const WorkshopDetailPage = () => {
             </div>
             <button
               className={`register-button ${isRegistered ? 'registered' : ''}`}
-              disabled={slotsLeft === 0 || isRegistered}
+              disabled={slotsLeft === 0 || isRegistered || isRegistering}
+              onClick={handleRegister}
             >
-              {isRegistered ? 'Đã đăng ký' : slotsLeft === 0 ? 'Hết chỗ' : 'Đăng ký ngay'}
+              {isRegistering ? 'Đang xử lý...' : isRegistered ? 'Đã đăng ký' : slotsLeft === 0 ? 'Hết chỗ' : 'Đăng ký ngay'}
             </button>
             <p className="reg-note">* Mã QR sẽ được gửi sau khi đăng ký thành công</p>
           </div>

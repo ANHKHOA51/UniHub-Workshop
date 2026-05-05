@@ -52,7 +52,7 @@ export const aiSummaryWorker = new Worker('ai-summary', async (job) => {
         }
 
         console.log(`[AI Worker] Saving AI summary to database for workshop ${workshopId}...`);
-        await WorkshopModel.update(workshopId, { ai_summary: summary });
+        await WorkshopModel.update(workshopId, { summary: summary });
 
         console.log(`[AI Worker] Job ${job.id} completed successfully for workshop ${workshopId}`);
 

@@ -71,7 +71,6 @@ const RegisteredWorkshopsPage = () => {
 
                 <div className="card-footer-action">
                   <div className="qr-preview-section">
-                    <span className="qr-label">Mã vé: <strong>{ws.qr_code || 'Chưa có'}</strong></span>
                     <button
                       className="view-qr-btn"
                       onClick={(e) => {
@@ -97,7 +96,6 @@ const RegisteredWorkshopsPage = () => {
               <QRCodeSVG value={selectedQR} size={256} marginSize={5} />
             </div>
             <div className="qr-footer">
-              <p>Mã vé: <strong>{selectedQR}</strong></p>
               <p className="qr-note">Vui lòng xuất trình mã này tại quầy check-in</p>
             </div>
           </div>

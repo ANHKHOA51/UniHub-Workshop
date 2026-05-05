@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as workshopService from '../services/workshopService';
 
 export const useWorkshops = () => {
@@ -42,4 +42,28 @@ export const useRegisteredWorkshops = () => {
     error: error?.message || null,
     refetch,
   };
+};
+
+export const useRegisterWorkshop = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (workshopId) => workshopService.registerWorkshop(workshopId),
+    onSuccess: (_, workshopId) => {
+      queryClient.invalidateQueries({ queryKey: ['registeredWorkshops'] });
+      queryClient.invalidateQueries({ queryKey: ['workshop', workshopId] });
+      queryClient.invalidateQueries({ queryKey: ['workshops'] });
+    },
+  });
+};
+
+export const useRegisterPaidWorkshop = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workshopId, idempotencyKey }) => workshopService.registerPaidWorkshop(workshopId, idempotencyKey),
+    onSuccess: (_, { workshopId }) => {
+      queryClient.invalidateQueries({ queryKey: ['registeredWorkshops'] });
+      queryClient.invalidateQueries({ queryKey: ['workshop', workshopId] });
+      queryClient.invalidateQueries({ queryKey: ['workshops'] });
+    },
+  });
 };

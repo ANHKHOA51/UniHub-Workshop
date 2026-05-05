@@ -1,4 +1,4 @@
-import { createClient } from 'redis';
+import { createClient, defineScript } from 'redis';
 
 export const TOKEN_BUCKET_SCRIPT = `
 local key = KEYS[1]
@@ -51,17 +51,7 @@ end
 `;
 
 const redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
-    scripts: {
-        tokenBucket: {
-            LUA: TOKEN_BUCKET_SCRIPT,
-            NUMBER_OF_KEYS: 1
-        },
-        reserveSeat: {
-            LUA: RESERVE_SEAT_SCRIPT,
-            NUMBER_OF_KEYS: 1
-        }
-    }
+    url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 });
 
 redisClient.on('error', (err) => console.error('Redis Client Error', err));
@@ -73,6 +63,20 @@ export const connectRedis = async () => {
         await redisClient.connect();
         isConnected = true;
     }
+};
+
+redisClient.tokenBucket = async (key, capacity, refillRate, refillInterval, now) => {
+    return redisClient.eval(TOKEN_BUCKET_SCRIPT, {
+        keys: [key],
+        arguments: [String(capacity), String(refillRate), String(refillInterval), String(now)]
+    });
+};
+
+redisClient.reserveSeat = async (key, maxSeats) => {
+    return redisClient.eval(RESERVE_SEAT_SCRIPT, {
+        keys: [key],
+        arguments: [String(maxSeats)]
+    });
 };
 
 export default redisClient;

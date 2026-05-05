@@ -40,5 +40,13 @@ export const RegistrationModel = {
             .update({ status })
             .returning('*');
         return registration;
+    },
+
+    async delete(id) {
+        const [registration] = await db('registrations')
+            .where({ id })
+            .del()
+            .returning('*');
+        return registration;
     }
 };

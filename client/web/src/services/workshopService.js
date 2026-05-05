@@ -46,3 +46,16 @@ export const getRegisteredWorkshops = async () => {
   }
   return data.map(normalizeWorkshop);
 };
+
+export const registerWorkshop = async (workshopId) => {
+  if (!workshopId) throw new Error('Workshop ID is required.');
+  const response = await workshopApi.registerWorkshop(workshopId);
+  return response;
+};
+
+export const registerPaidWorkshop = async (workshopId, idempotencyKey) => {
+  if (!workshopId) throw new Error('Workshop ID is required.');
+  if (!idempotencyKey) throw new Error('Idempotency Key is required.');
+  const response = await workshopApi.registerPaidWorkshop(workshopId, idempotencyKey);
+  return response;
+};
