@@ -8,12 +8,10 @@ const redisConnection = {
 
 // Initialize nodemailer transporter
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
-    secure: process.env.SMTP_SECURE === 'true' || false, // true for 465, false for other ports
+    service: 'gmail',
     auth: {
-        user: process.env.SMTP_USER || process.env.EMAIL_USER,
-        pass: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
     }
 });
 
@@ -48,7 +46,7 @@ export const emailWorker = new Worker('email', async (job) => {
 
         // Send email
         const mailOptions = {
-            from: process.env.SMTP_FROM || process.env.EMAIL_USER,
+            from: process.env.EMAIL_ADMIN,
             to,
             subject,
             text,
