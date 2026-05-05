@@ -20,7 +20,7 @@ export const loginUser = async (email, password) => {
     const payload = {
         userId: user.id,
         email: user.email,
-        fullName: user.full_name,
+        fullName: user.name,
         role: user.role,
     };
 
@@ -40,7 +40,7 @@ export const loginUser = async (email, password) => {
         user: {
             id: user.id,
             email: user.email,
-            fullName: user.full_name,
+            fullName: user.name,
             role: user.role,
         },
         tokens: {

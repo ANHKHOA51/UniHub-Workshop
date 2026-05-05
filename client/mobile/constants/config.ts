@@ -21,8 +21,7 @@ export const API_BASE_URL = __DEV__
  *
  * TODO: Thay bằng public key thật khi Backend deploy.
  */
-export const ED25519_PUBLIC_KEY =
-  'MCowBQYDK2VwAyEAMockPublicKeyForDevelopment1234567890ABC=';
+export const ED25519_PUBLIC_KEY ="MCowBQYDK2VwAyEAO096wpFX9vag8LfA093E8EsNMp9LqEDWH46Mvtib8zg=";
 
 /**
  * Background sync interval (milliseconds)

@@ -207,10 +207,10 @@ export default function WorkshopDetailScreen() {
         <Text style={[styles.checkinTime, { color: theme.textTertiary }]}>
           {item.checkedInAt
             ? new Date(item.checkedInAt).toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-              })
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
             : '—'}
         </Text>
       </View>
@@ -249,7 +249,7 @@ export default function WorkshopDetailScreen() {
             {workshop.title}
           </Text>
           <Text style={[styles.headerSubtitle, { color: theme.textTertiary }]}>
-            {workshop.room} • {workshop.startTime} – {workshop.endTime}
+            {workshop.room} • {workshop.startTime}
           </Text>
         </View>
         <SyncIndicator pendingCount={pendingCount} isSyncing={false} isOnline={true} />
@@ -344,7 +344,7 @@ export default function WorkshopDetailScreen() {
                 barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                 onBarcodeScanned={scanResult ? undefined : handleBarCodeScanned}
               />
-              
+
               <View style={[StyleSheet.absoluteFillObject, { zIndex: 5 }]}>
                 <View style={[styles.modalHeader, { paddingTop: insets.top + Spacing.sm }]}>
                   <TouchableOpacity onPress={handleCloseScanner} style={styles.modalCloseButton}>

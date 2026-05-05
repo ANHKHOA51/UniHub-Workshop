@@ -114,7 +114,7 @@ export default function WorkshopListScreen() {
         <View style={styles.headerTop}>
           <View>
             <Text style={[styles.greeting, { color: theme.textSecondary }]}>
-              Xin chào, {user?.fullName ?? 'Staff'} 👋
+              Xin chào, {user?.fullName ?? 'Staff'}
             </Text>
             <Text style={[styles.headerTitle, { color: theme.text }]}>
               Workshops hôm nay
