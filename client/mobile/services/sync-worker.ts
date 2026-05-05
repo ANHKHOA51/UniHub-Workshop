@@ -93,7 +93,7 @@ export async function syncNow(): Promise<void> {
           body: JSON.stringify({
             records: chunk.map((r) => ({
               registration_id: r.id,
-              checked_in_at: r.checkedInAt,
+              checked_in: r.checkedInAt,
             })),
           }),
         });

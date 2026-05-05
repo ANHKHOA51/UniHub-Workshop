@@ -37,6 +37,7 @@ export interface Workshop {
 /** Registration record (synced to local DB) */
 export interface Registration {
   id: string; // registration_id (UUID)
+  userId: string;
   workshopId: string;
   studentName: string;
   studentEmail: string;

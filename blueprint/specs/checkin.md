@@ -80,8 +80,8 @@ Quy trình xác minh gồm **2 lớp kiểm tra**:
 **Lớp 2 — Kiểm tra nghiệp vụ trong Local DB:**
 - Nếu chữ ký hợp lệ, App dùng `registration_id` (payload) để tra cứu trong Local Database:
   - Không tìm thấy → Báo lỗi: **"Vé không tồn tại trong danh sách"**.
-  - Đã check-in rồi (`checked_in_at` khác NULL) → Báo lỗi: **"Vé đã được sử dụng"**.
-  - Vé hợp lệ → Cập nhật `checked_in_at = NOW()` và đánh dấu `pending_sync = true` trong Local DB.
+  - Đã check-in rồi (`checked_in` khác NULL) → Báo lỗi: **"Vé đã được sử dụng"**.
+  - Vé hợp lệ → Cập nhật `checked_in = NOW()` và đánh dấu `pending_sync = true` trong Local DB.
 - Màn hình báo **thành công** ngay lập tức (không chờ gọi API).
 
 ### 3. Luồng đồng bộ (Background Sync — Chunked)
@@ -98,8 +98,8 @@ Nếu thỏa cả hai, Worker **chia các bản ghi thành từng lô nhỏ** (c
 POST /api/checkins/sync
 Body: {
   "records": [
-    { "registration_id": "aaa", "checked_in_at": "2026-05-10T08:15:00" },
-    { "registration_id": "bbb", "checked_in_at": "2026-05-10T08:15:05" }
+    { "registration_id": "aaa", "checked_in": "2026-05-10T08:15:00" },
+    { "registration_id": "bbb", "checked_in": "2026-05-10T08:15:05" }
   ]
 }
 ```
@@ -149,7 +149,7 @@ async function syncPendingCheckins() {
 | :--- | :--- |
 | **QR giả mạo** | Ed25519.verify() trả về `false` → Từ chối ngay, không tra DB. |
 | **QR hợp lệ nhưng vé không có trong Local DB** | Có thể do App chưa đồng bộ dữ liệu mới nhất. Hiển thị: "Không tìm thấy vé. Vui lòng kết nối mạng để cập nhật danh sách." |
-| **Quét trùng (Vé đã sử dụng)** | Kiểm tra `checked_in_at` trong Local DB. Nếu đã có giá trị → Báo: "Vé đã được sử dụng lúc HH:MM". |
+| **Quét trùng (Vé đã sử dụng)** | Kiểm tra `checked_in` trong Local DB. Nếu đã có giá trị → Báo: "Vé đã được sử dụng lúc HH:MM". |
 | **Xóa App / Kill App trước khi Sync** | Dữ liệu được lưu cứng (persistent) vào SQLite. Mở lại App → dữ liệu `pending_sync` vẫn còn nguyên và sẽ tự đồng bộ khi có mạng. |
 | **Conflict khi Sync (2 thiết bị quét cùng 1 vé)** | Backend giữ lại thời gian check-in sớm nhất (First-Write-Wins) và trả về trạng thái `conflict` cho thiết bị đến sau. |
 | **Tích lũy quá nhiều bản ghi offline** | Worker chia thành các lô nhỏ (50 dòng/lô). Mất mạng giữa chừng chỉ mất 1 lô đang gửi, các lô trước đó đã sync an toàn. |

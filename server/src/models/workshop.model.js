@@ -2,11 +2,23 @@ import db from './db.js';
 
 export const WorkshopModel = {
     async findAll() {
-        return db('workshops').select('*');
+        return db('workshops')
+            .leftJoin('registrations', 'workshops.id', 'registrations.workshop_id')
+            .select('workshops.*')
+            .select(db.raw('COUNT(registrations.id)::integer as registered_count'))
+            .select(db.raw('COUNT(CASE WHEN registrations.check_in IS NOT NULL THEN 1 END)::integer as checked_in_count'))
+            .groupBy('workshops.id');
     },
 
     async findById(id) {
-        return db('workshops').where({ id }).first();
+        return db('workshops')
+            .leftJoin('registrations', 'workshops.id', 'registrations.workshop_id')
+            .where('workshops.id', id)
+            .groupBy('workshops.id')
+            .select('workshops.*')
+            .select(db.raw('COUNT(registrations.id)::integer as registered_count'))
+            .select(db.raw('COUNT(CASE WHEN registrations.check_in IS NOT NULL THEN 1 END)::integer as checked_in_count'))
+            .first();
     },
 
     async create(data) {

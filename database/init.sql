@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS registrations (
     workshop_id INT REFERENCES workshops(id) ON DELETE CASCADE,
     status VARCHAR(50) DEFAULT 'pending',
     qr_code VARCHAR(255),
-    check_in BOOLEAN DEFAULT false,
+    check_in TIMESTAMP DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, workshop_id)
 );

@@ -87,7 +87,7 @@ Dưới đây là ma trận phân quyền chi tiết cho 3 nhóm người dùng:
 | :--- | :--- | :--- |
 | **`STUDENT`** | Sinh viên | - Xem danh sách và chi tiết các Workshop đang mở.<br>- Tạo mới lượt đăng ký và thanh toán.<br>- Xem lịch sử cá nhân và lấy Mã QR check-in. |
 | **`ADMIN`** | Ban tổ chức | - Toàn quyền (CRUD) quản lý Workshop: Tạo, sửa, đổi phòng, hủy sự kiện, upload PDF cho AI tóm tắt.<br>- Xem danh sách toàn bộ sinh viên đăng ký của các Workshop.<br>- Xem bảng điều khiển (Dashboard) thống kê. |
-| **`STAFF`** | Nhân sự Check-in | - Quét mã QR của Sinh viên để cập nhật trạng thái `checked_in_at`.<br>- Xem thông tin cơ bản của Workshop mình trực. |
+| **`STAFF`** | Nhân sự Check-in | - Quét mã QR của Sinh viên để cập nhật trạng thái `checked_in`.<br>- Xem thông tin cơ bản của Workshop mình trực. |
 
 ---
 

@@ -22,6 +22,7 @@ import { SyncIndicator } from '@/components/SyncIndicator';
 import { Brand, Colors, Spacing, Typography, Radius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as database from '@/services/database';
+import * as api from '@/services/api';
 import { USE_MOCK_DATA } from '@/constants/config';
 
 export default function WorkshopListScreen() {
@@ -39,8 +40,16 @@ export default function WorkshopListScreen() {
   const loadWorkshops = useCallback(async () => {
     try {
       if (USE_MOCK_DATA) {
+        // Seed dữ liệu giả khi chưa có Backend
         await database.seedMockData();
+      } else {
+        // Fetch danh sách workshop thật từ Backend API
+        const workshopsFromApi = await api.fetchWorkshops();
+        // Lưu vào SQLite local để hỗ trợ offline
+        await database.saveWorkshops(workshopsFromApi);
       }
+
+      // Luôn đọc từ local DB (offline-first)
       const data = await database.getWorkshops();
       setWorkshops(data);
 
@@ -48,6 +57,13 @@ export default function WorkshopListScreen() {
       setPendingCount(pending);
     } catch (error) {
       console.error('Failed to load workshops:', error);
+      // Nếu API lỗi, vẫn thử đọc dữ liệu offline cũ
+      try {
+        const offlineData = await database.getWorkshops();
+        setWorkshops(offlineData);
+      } catch {
+        // Không có data offline nào
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -58,15 +74,14 @@ export default function WorkshopListScreen() {
     loadWorkshops();
   }, []);
 
-  // Reload khi quay lại từ detail screen
+  // Reload định kỳ
   useEffect(() => {
     const interval = setInterval(() => {
-      // Refresh data mỗi 15s (để cập nhật check-in count nếu quay lại)
-      database.getWorkshops().then(setWorkshops);
-      database.countPendingSync().then(setPendingCount);
+      // Gọi lại loadWorkshops để vừa fetch API (nếu có mạng) vừa update local DB
+      loadWorkshops();
     }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadWorkshops]);
 
   const handleWorkshopPress = (workshop: Workshop) => {
     router.push(`/workshop/${workshop.id}` as any);

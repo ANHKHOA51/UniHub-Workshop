@@ -22,28 +22,38 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
 async function initTables(): Promise<void> {
   if (!db) return;
 
+  // Xóa db cũ (reset)
+  await db.execAsync(`
+    DROP TABLE IF EXISTS registrations;
+    DROP TABLE IF EXISTS workshops;
+  `);
+
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS workshops (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       description TEXT,
+      time TEXT,
       speaker TEXT,
-      room TEXT,
-      date TEXT NOT NULL,
-      start_time TEXT,
-      end_time TEXT,
-      max_slots INTEGER DEFAULT 0,
+      floor_plan TEXT,
+      location TEXT,
+      price REAL DEFAULT 0,
+      capacity INTEGER DEFAULT 0,
       registered_count INTEGER DEFAULT 0,
       checked_in_count INTEGER DEFAULT 0,
+      summary TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS registrations (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
       workshop_id TEXT NOT NULL,
-      student_name TEXT NOT NULL,
+      student_name TEXT,
       student_email TEXT,
-      checked_in_at TEXT,
+      status TEXT DEFAULT 'pending',
+      qr_code TEXT,
+      checked_in TEXT,
       pending_sync INTEGER DEFAULT 0,
       FOREIGN KEY (workshop_id) REFERENCES workshops(id)
     );
@@ -60,46 +70,59 @@ export async function saveWorkshops(workshops: Workshop[]): Promise<void> {
   const database = await getDb();
 
   for (const w of workshops) {
+    const time = w.date && w.startTime ? `${w.date}T${w.startTime}:00.000Z` : null;
+
     await database.runAsync(
-      `INSERT OR REPLACE INTO workshops (id, title, description, speaker, room, date, start_time, end_time, max_slots, registered_count, checked_in_count, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-      [w.id, w.title, w.description, w.speaker, w.room, w.date, w.startTime, w.endTime, w.maxSlots, w.registeredCount, w.checkedInCount]
+      `INSERT OR REPLACE INTO workshops (id, title, description, time, speaker, location, capacity, registered_count, checked_in_count, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [w.id, w.title, w.description, time, w.speaker, w.room, w.maxSlots, w.registeredCount, w.checkedInCount]
     );
   }
 }
 
-/** Lấy danh sách workshops hôm nay */
+/** Lấy danh sách workshops */
 export async function getWorkshops(): Promise<Workshop[]> {
   const database = await getDb();
-  const today = new Date().toISOString().split('T')[0];
 
   const rows = await database.getAllAsync<{
     id: string;
     title: string;
     description: string;
+    time: string | null;
     speaker: string;
-    room: string;
-    date: string;
-    start_time: string;
-    end_time: string;
-    max_slots: number;
+    location: string;
+    capacity: number;
     registered_count: number;
     checked_in_count: number;
-  }>('SELECT * FROM workshops WHERE date = ? ORDER BY start_time ASC', [today]);
+  }>('SELECT * FROM workshops ORDER BY time ASC');
 
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    speaker: row.speaker,
-    room: row.room,
-    date: row.date,
-    startTime: row.start_time,
-    endTime: row.end_time,
-    maxSlots: row.max_slots,
-    registeredCount: row.registered_count,
-    checkedInCount: row.checked_in_count,
-  }));
+  return rows.map((row) => {
+    let dateStr = '';
+    let startTimeStr = '';
+    if (row.time) {
+      const d = new Date(row.time);
+      if (!isNaN(d.getTime())) {
+        dateStr = d.toISOString().split('T')[0];
+        const hours = d.getUTCHours().toString().padStart(2, '0');
+        const minutes = d.getUTCMinutes().toString().padStart(2, '0');
+        startTimeStr = `${hours}:${minutes}`;
+      }
+    }
+
+    return {
+      id: String(row.id),
+      title: row.title,
+      description: row.description,
+      speaker: row.speaker,
+      room: row.location,
+      date: dateStr,
+      startTime: startTimeStr,
+      endTime: '',
+      maxSlots: row.capacity,
+      registeredCount: row.registered_count,
+      checkedInCount: row.checked_in_count,
+    };
+  });
 }
 
 // ─── Registration Operations ────────────────────────────────
@@ -110,9 +133,9 @@ export async function saveRegistrations(registrations: Registration[]): Promise<
 
   for (const r of registrations) {
     await database.runAsync(
-      `INSERT OR REPLACE INTO registrations (id, workshop_id, student_name, student_email, checked_in_at, pending_sync)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [r.id, r.workshopId, r.studentName, r.studentEmail, r.checkedInAt, r.pendingSync ? 1 : 0]
+      `INSERT OR REPLACE INTO registrations (id, user_id, workshop_id, student_name, student_email, checked_in, pending_sync)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [r.id, r.userId || '', r.workshopId, r.studentName, r.studentEmail, r.checkedInAt, r.pendingSync ? 1 : 0]
     );
   }
 }
@@ -123,10 +146,11 @@ export async function findRegistration(registrationId: string): Promise<Registra
 
   const row = await database.getFirstAsync<{
     id: string;
+    user_id: string;
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in_at: string | null;
+    checked_in: string | null;
     pending_sync: number;
   }>('SELECT * FROM registrations WHERE id = ?', [registrationId]);
 
@@ -134,10 +158,11 @@ export async function findRegistration(registrationId: string): Promise<Registra
 
   return {
     id: row.id,
+    userId: row.user_id,
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in_at,
+    checkedInAt: row.checked_in,
     pendingSync: row.pending_sync === 1,
   };
 }
@@ -151,10 +176,11 @@ export async function findRegistrationForWorkshop(
 
   const row = await database.getFirstAsync<{
     id: string;
+    user_id: string;
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in_at: string | null;
+    checked_in: string | null;
     pending_sync: number;
   }>('SELECT * FROM registrations WHERE id = ? AND workshop_id = ?', [registrationId, workshopId]);
 
@@ -162,10 +188,11 @@ export async function findRegistrationForWorkshop(
 
   return {
     id: row.id,
+    userId: row.user_id,
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in_at,
+    checkedInAt: row.checked_in,
     pendingSync: row.pending_sync === 1,
   };
 }
@@ -176,18 +203,8 @@ export async function markCheckedIn(registrationId: string): Promise<void> {
   const now = new Date().toISOString();
 
   await database.runAsync(
-    'UPDATE registrations SET checked_in_at = ?, pending_sync = 1 WHERE id = ?',
+    'UPDATE registrations SET checked_in = ?, pending_sync = 1 WHERE id = ?',
     [now, registrationId]
-  );
-
-  // Cập nhật checked_in_count trong workshop
-  await database.runAsync(
-    `UPDATE workshops SET checked_in_count = (
-      SELECT COUNT(*) FROM registrations WHERE workshop_id = (
-        SELECT workshop_id FROM registrations WHERE id = ?
-      ) AND checked_in_at IS NOT NULL
-    ) WHERE id = (SELECT workshop_id FROM registrations WHERE id = ?)`,
-    [registrationId, registrationId]
   );
 }
 
@@ -197,19 +214,21 @@ export async function getPendingSyncRecords(): Promise<Registration[]> {
 
   const rows = await database.getAllAsync<{
     id: string;
+    user_id: string;
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in_at: string | null;
+    checked_in: string | null;
     pending_sync: number;
-  }>('SELECT * FROM registrations WHERE pending_sync = 1 AND checked_in_at IS NOT NULL');
+  }>('SELECT * FROM registrations WHERE pending_sync = 1 AND checked_in IS NOT NULL');
 
   return rows.map((row) => ({
     id: row.id,
+    userId: row.user_id,
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in_at,
+    checkedInAt: row.checked_in,
     pendingSync: true,
   }));
 }
@@ -238,22 +257,24 @@ export async function getRecentCheckins(workshopId: string, limit: number = 20):
 
   const rows = await database.getAllAsync<{
     id: string;
+    user_id: string;
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in_at: string | null;
+    checked_in: string | null;
     pending_sync: number;
   }>(
-    'SELECT * FROM registrations WHERE workshop_id = ? AND checked_in_at IS NOT NULL ORDER BY checked_in_at DESC LIMIT ?',
+    'SELECT * FROM registrations WHERE workshop_id = ? AND checked_in IS NOT NULL ORDER BY checked_in DESC LIMIT ?',
     [workshopId, limit]
   );
 
   return rows.map((row) => ({
     id: row.id,
+    userId: row.user_id,
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in_at,
+    checkedInAt: row.checked_in,
     pendingSync: row.pending_sync === 1,
   }));
 }
@@ -319,25 +340,25 @@ export async function seedMockData(): Promise<void> {
     },
   ];
 
-  const mockRegistrations: Registration[] = [
-    // Workshop 1
-    { id: 'reg-001', workshopId: 'ws-001', studentName: 'Nguyễn Văn An', studentEmail: 'an.nv@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), pendingSync: false },
-    { id: 'reg-002', workshopId: 'ws-001', studentName: 'Trần Thị Bình', studentEmail: 'binh.tt@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), pendingSync: false },
-    { id: 'reg-003', workshopId: 'ws-001', studentName: 'Lê Hoàng Cường', studentEmail: 'cuong.lh@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(), pendingSync: true },
-    { id: 'reg-004', workshopId: 'ws-001', studentName: 'Phạm Thị Dung', studentEmail: 'dung.pt@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-005', workshopId: 'ws-001', studentName: 'Hoàng Minh Đức', studentEmail: 'duc.hm@student.edu', checkedInAt: null, pendingSync: false },
-    // Workshop 2
-    { id: 'reg-006', workshopId: 'ws-002', studentName: 'Vũ Thanh Hà', studentEmail: 'ha.vt@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-007', workshopId: 'ws-002', studentName: 'Đặng Quốc Khánh', studentEmail: 'khanh.dq@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-008', workshopId: 'ws-002', studentName: 'Bùi Thị Lan', studentEmail: 'lan.bt@student.edu', checkedInAt: null, pendingSync: false },
-    // Workshop 3
-    { id: 'reg-009', workshopId: 'ws-003', studentName: 'Ngô Văn Mạnh', studentEmail: 'manh.nv@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-010', workshopId: 'ws-003', studentName: 'Lý Thị Ngọc', studentEmail: 'ngoc.lt@student.edu', checkedInAt: null, pendingSync: false },
-    // Workshop 4
-    { id: 'reg-011', workshopId: 'ws-004', studentName: 'Trương Quang Phúc', studentEmail: 'phuc.tq@student.edu', checkedInAt: null, pendingSync: false },
-    { id: 'reg-012', workshopId: 'ws-004', studentName: 'Mai Thị Quỳnh', studentEmail: 'quynh.mt@student.edu', checkedInAt: null, pendingSync: false },
-  ];
+  // const mockRegistrations: Registration[] = [
+  //   // Workshop 1
+  //   { id: 'reg-001', workshopId: 'ws-001', studentName: 'Nguyễn Văn An', studentEmail: 'an.nv@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(), pendingSync: false },
+  //   { id: 'reg-002', workshopId: 'ws-001', studentName: 'Trần Thị Bình', studentEmail: 'binh.tt@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), pendingSync: false },
+  //   { id: 'reg-003', workshopId: 'ws-001', studentName: 'Lê Hoàng Cường', studentEmail: 'cuong.lh@student.edu', checkedInAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(), pendingSync: true },
+  //   { id: 'reg-004', workshopId: 'ws-001', studentName: 'Phạm Thị Dung', studentEmail: 'dung.pt@student.edu', checkedInAt: null, pendingSync: false },
+  //   { id: 'reg-005', workshopId: 'ws-001', studentName: 'Hoàng Minh Đức', studentEmail: 'duc.hm@student.edu', checkedInAt: null, pendingSync: false },
+  //   // Workshop 2
+  //   { id: 'reg-006', workshopId: 'ws-002', studentName: 'Vũ Thanh Hà', studentEmail: 'ha.vt@student.edu', checkedInAt: null, pendingSync: false },
+  //   { id: 'reg-007', workshopId: 'ws-002', studentName: 'Đặng Quốc Khánh', studentEmail: 'khanh.dq@student.edu', checkedInAt: null, pendingSync: false },
+  //   { id: 'reg-008', workshopId: 'ws-002', studentName: 'Bùi Thị Lan', studentEmail: 'lan.bt@student.edu', checkedInAt: null, pendingSync: false },
+  //   // Workshop 3
+  //   { id: 'reg-009', workshopId: 'ws-003', studentName: 'Ngô Văn Mạnh', studentEmail: 'manh.nv@student.edu', checkedInAt: null, pendingSync: false },
+  //   { id: 'reg-010', workshopId: 'ws-003', studentName: 'Lý Thị Ngọc', studentEmail: 'ngoc.lt@student.edu', checkedInAt: null, pendingSync: false },
+  //   // Workshop 4
+  //   { id: 'reg-011', workshopId: 'ws-004', studentName: 'Trương Quang Phúc', studentEmail: 'phuc.tq@student.edu', checkedInAt: null, pendingSync: false },
+  //   { id: 'reg-012', workshopId: 'ws-004', studentName: 'Mai Thị Quỳnh', studentEmail: 'quynh.mt@student.edu', checkedInAt: null, pendingSync: false },
+  // ];
 
   await saveWorkshops(mockWorkshops);
-  await saveRegistrations(mockRegistrations);
+  // await saveRegistrations(mockRegistrations);
 }

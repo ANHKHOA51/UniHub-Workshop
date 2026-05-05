@@ -43,7 +43,7 @@ export function WorkshopCard({ workshop, onPress }: WorkshopCardProps) {
         <View style={styles.timeContainer}>
           <MaterialIcons name="schedule" size={14} color={theme.tint} />
           <Text style={[styles.timeText, { color: theme.tint }]}>
-            {workshop.startTime} – {workshop.endTime}
+            {workshop.startTime}
           </Text>
         </View>
         <StatusBadge

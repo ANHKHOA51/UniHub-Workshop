@@ -8,7 +8,7 @@
  * thay vì localhost.
  */
 export const API_BASE_URL = __DEV__
-  ? 'http://192.168.1.100:3000/api' // Đổi IP này theo mạng LAN của bạn
+  ? 'http://172.20.10.2:3000/api' // Đổi IP này theo mạng LAN của bạn
   : 'https://api.unihub-workshop.com/api';
 
 /**
@@ -38,4 +38,4 @@ export const SYNC_CHUNK_SIZE = 50;
 /**
  * Có sử dụng mock data không (khi chưa có Backend API)
  */
-export const USE_MOCK_DATA = true;
+export const USE_MOCK_DATA = false;

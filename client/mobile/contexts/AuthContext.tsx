@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import * as SecureStore from 'expo-secure-store';
 import { User, AuthTokens } from '@/types';
 import { USE_MOCK_DATA } from '@/constants/config';
+import * as api from '@/services/api';
 
 interface AuthState {
   user: User | null;
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (userJson && token) {
           const user = JSON.parse(userJson) as User;
+          api.setAuthToken(token);
           setState({ user, isLoading: false, isAuthenticated: true });
         } else {
           setState({ user: null, isLoading: false, isAuthenticated: false });
@@ -103,11 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user = result.user;
         tokens = result.tokens;
       } else {
-        // TODO: Real API call
-        // const response = await api.post('/auth/login', { email, password });
-        // user = response.data.user;
-        // tokens = response.data.tokens;
-        throw new Error('Real API not implemented');
+        const result = await api.login(email, password);
+        console.log('[AuthContext] Login API result:', result);
+        user = result.user;
+        tokens = result.tokens;
       }
 
       // Chỉ cho phép role STAFF đăng nhập vào app check-in
@@ -115,10 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Chỉ nhân sự check-in mới có quyền sử dụng ứng dụng này');
       }
 
+      console.log('[AuthContext] Saving token:', tokens?.accessToken ? 'YES' : 'NO');
       // Lưu vào SecureStore
       await SecureStore.setItemAsync(TOKEN_KEY, tokens.accessToken);
       await SecureStore.setItemAsync(REFRESH_KEY, tokens.refreshToken);
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      api.setAuthToken(tokens.accessToken);
 
       setState({ user, isLoading: false, isAuthenticated: true });
     } catch (error) {
@@ -132,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(REFRESH_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);
+    api.setAuthToken(null);
     setState({ user: null, isLoading: false, isAuthenticated: false });
   }, []);
 
