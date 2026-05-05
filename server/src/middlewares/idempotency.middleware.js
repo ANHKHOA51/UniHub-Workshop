@@ -8,7 +8,7 @@ export const idempotency = async (req, res, next) => {
             return res.status(400).json({ message: 'Idempotency-Key header is required.' });
         }
 
-        const redisKey = `idempotency:${idempotencyKey}`;
+        const redisKey = `unihub:idempotency:payment:${idempotencyKey}`;
 
         const existingData = await redisClient.get(redisKey);
 
