@@ -43,7 +43,7 @@ export const createRegistration = async (userId, workshopId) => {
         throw error;
     }
 
-    const seatKey = `workshop:${workshopId}:participants`;
+    const seatKey = `unihub:workshop:${workshopId}:participants`;
     const maxSeats = workshop.capacity;
 
     const result = await redisClient.reserveSeat(seatKey, maxSeats.toString());
@@ -90,7 +90,7 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
         throw error;
     }
 
-    const seatKey = `workshop:${workshopId}:participants`;
+    const seatKey = `unihub:workshop:${workshopId}:participants`;
     const maxSeats = workshop.capacity;
 
     const result = await redisClient.reserveSeat(seatKey, maxSeats.toString());
@@ -136,7 +136,7 @@ export const createPaymentRegistration = async (userId, workshopId, idempotencyK
 
 export const cancelRegistration = async (registrationId, workshopId) => {
     if (workshopId) {
-        const seatKey = `workshop:${workshopId}:participants`;
+        const seatKey = `unihub:workshop:${workshopId}:participants`;
         await redisClient.decr(seatKey);
     }
     if (registrationId) {
@@ -185,7 +185,7 @@ export const handlePaymentWebhook = async (payload) => {
         }
 
         if (idempotencyKey) {
-            const redisKey = `idempotency:${idempotencyKey}`;
+            const redisKey = `unihub:idempotency:payment:${idempotencyKey}`;
             const finalResponse = {
                 message: 'Registration and payment successful',
                 data: {

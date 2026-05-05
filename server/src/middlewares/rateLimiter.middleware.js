@@ -5,7 +5,7 @@ export const rateLimiter = async (req, res, next) => {
         const userId = req.user?.userId || req.user?.id || req.ip;
         const now = Math.floor(Date.now() / 1000);
 
-        const userKey = `ratelimit:user:${userId}`;
+        const userKey = `unihub:ratelimit:user:${userId}`;
         const userCapacity = 10;
         const userRefillRate = 1;
         const userRefillInterval = 1;
@@ -22,7 +22,7 @@ export const rateLimiter = async (req, res, next) => {
             return res.status(429).json({ message: 'Too many requests. Please try again later.' });
         }
 
-        const globalKey = `ratelimit:global:registration`;
+        const globalKey = `unihub:ratelimit:global:register`;
         const globalCapacity = 2400;
         const globalRefillRate = 20;
         const globalRefillInterval = 1;
