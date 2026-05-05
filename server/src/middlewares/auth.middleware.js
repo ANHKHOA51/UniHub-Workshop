@@ -22,7 +22,10 @@ export async function isAuthenticated(req, res, next) {
 
 export function isAuthorized(allowedRoles) {
     return (req, res, next) => {
-        if (!req.user || !allowedRoles.includes(req.user.role)) {
+        const userRole = req.user?.role?.toLowerCase();
+        const roles = allowedRoles.map(r => r.toLowerCase());
+
+        if (!userRole || !roles.includes(userRole)) {
             return res.status(403).json({
                 message: `Forbidden. Required role(s): ${allowedRoles.join(' or ')}`
             });

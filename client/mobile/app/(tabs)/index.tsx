@@ -39,15 +39,10 @@ export default function WorkshopListScreen() {
 
   const loadWorkshops = useCallback(async () => {
     try {
-      if (USE_MOCK_DATA) {
-        // Seed dữ liệu giả khi chưa có Backend
-        await database.seedMockData();
-      } else {
-        // Fetch danh sách workshop thật từ Backend API
-        const workshopsFromApi = await api.fetchWorkshops();
-        // Lưu vào SQLite local để hỗ trợ offline
-        await database.saveWorkshops(workshopsFromApi);
-      }
+      // Fetch danh sách workshop thật từ Backend API
+      const workshopsFromApi = await api.fetchWorkshops();
+      // Lưu vào SQLite local để hỗ trợ offline
+      await database.saveWorkshops(workshopsFromApi);
 
       // Luôn đọc từ local DB (offline-first)
       const data = await database.getWorkshops();
