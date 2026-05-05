@@ -1,6 +1,7 @@
 import express from 'express';
 import * as jwtHelper from '../utils/jwt.helper.js';
 import * as authMiddleware from '../middlewares/auth.middleware.js';
+import { addSyncCSVJob } from '../queues/sync_csv.queue.js';
 
 const router = express.Router();
 
@@ -27,6 +28,13 @@ router.get('/auth', authMiddleware.isAuthenticated, (req, res) => {
     res.json({
         susscess: true
     });
+})
+
+router.get('/sync', async (req, res) => {
+    const job = await addSyncCSVJob('data/export.csv');
+    return res.json({
+        job_id: job.id
+    })
 })
 
 export default router;

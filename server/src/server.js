@@ -26,12 +26,12 @@ const startServer = async () => {
         console.log(`Server is running on port ${port}`);
 
         // expose đúng port app
-        const listener = await ngrok.connect({
-            addr: port,
-            authtoken_from_env: true
-        });
+        // const listener = await ngrok.connect({
+        //     addr: port,
+        //     authtoken_from_env: true
+        // });
 
-        console.log(`Ngrok URL: ${listener.url()}`);
+        // console.log(`Ngrok URL: ${listener.url()}`);
     });
 };
 
