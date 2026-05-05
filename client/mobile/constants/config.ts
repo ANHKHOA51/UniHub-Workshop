@@ -8,7 +8,7 @@
  * thay vì localhost.
  */
 export const API_BASE_URL = __DEV__
-  ? 'http://172.20.10.2:3000/api' // Đổi IP này theo mạng LAN của bạn
+  ? 'https://cavalry-manifesto-monsoon.ngrok-free.dev/api' // Đổi IP này theo mạng LAN của bạn
   : 'https://api.unihub-workshop.com/api';
 
 /**
