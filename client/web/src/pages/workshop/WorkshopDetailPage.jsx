@@ -1,14 +1,58 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router'
-import { MOCK_WORKSHOPS } from './WorkshopsPage';
+import { useParams, useNavigate } from 'react-router';
+import { useWorkshopDetail, useRegisteredWorkshops } from '../../hooks/useWorkShopData';
+import { SERVER_BASE_URL } from '../../utils/constants';
 import './WorkshopDetailPage.css';
+
+const formatWorkshopTime = (isoString) => {
+  if (!isoString) return 'Chưa xác định';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return isoString;
+  const pad = (n) => String(n).padStart(2, '0');
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const dd = pad(date.getDate());
+  const mo = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  return `${hh}:${mm} ${dd}/${mo}/${yyyy}`;
+};
 
 const WorkshopDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const workshop = MOCK_WORKSHOPS.find(ws => ws.id === parseInt(id));
+  const { workshop, loading, error } = useWorkshopDetail(id);
+  const { workshops: registeredList } = useRegisteredWorkshops();
 
-  if (!workshop) return <div style={{ padding: '100px', textAlign: 'center' }}>Workshop không tồn tại.</div>;
+  const isRegistered = registeredList.some(w => String(w.id) === String(id));
+
+  if (loading) {
+    return (
+      <div style={{ padding: '100px', textAlign: 'center' }}>
+        Đang tải thông tin workshop...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '100px', textAlign: 'center' }}>
+        Không thể tải workshop: {error}
+      </div>
+    );
+  }
+
+  if (!workshop) {
+    return (
+      <div style={{ padding: '100px', textAlign: 'center' }}>
+        Workshop không tồn tại.
+      </div>
+    );
+  }
+
+  const registeredCount = workshop.registered_count ?? 0;
+  const capacity = workshop.capacity ?? 0;
+  const slotsLeft = workshop.slotsLeft ?? 0;
+  const fillPercent = capacity > 0 ? Math.min(100, (registeredCount / capacity) * 100) : 0;
 
   return (
     <div className="workshop-detail-container">
@@ -17,18 +61,11 @@ const WorkshopDetailPage = () => {
           <i className="fa-solid fa-arrow-left"></i> Quay lại
         </button>
         <div className="detail-header-content">
-          <div className="detail-badges">
-            {workshop.price === 0 ? (
-              <span className="badge free">Miễn phí</span>
-            ) : (
-              <span className="badge paid">{workshop.price.toLocaleString('vi-VN')}đ</span>
-            )}
-          </div>
           <h1>{workshop.title}</h1>
           <div className="header-meta">
-            <span><i className="fa-solid fa-user-tie"></i> {workshop.speaker}</span>
-            <span><i className="fa-solid fa-calendar-days"></i> {workshop.time}</span>
-            <span><i className="fa-solid fa-location-dot"></i> {workshop.location}</span>
+            <span><i className="fa-solid fa-user-tie"></i> {workshop.speaker || 'Chưa xác định'}</span>
+            <span><i className="fa-solid fa-calendar-days"></i> {formatWorkshopTime(workshop.time)}</span>
+            <span><i className="fa-solid fa-location-dot"></i> {workshop.location || 'Chưa xác định'}</span>
           </div>
         </div>
       </div>
@@ -46,12 +83,7 @@ const WorkshopDetailPage = () => {
                 <p>{workshop.summary}</p>
               </div>
             )}
-            <p className="full-description">
-              Trong môi trường học tập và làm việc hiện nay, khả năng truyền đạt ý tưởng một cách thuyết phục
-              là yếu tố then chốt dẫn đến thành công. Workshop "{workshop.title}" được thiết kế
-              nhằm trang bị cho sinh viên những công cụ và phương pháp thực tế nhất để vượt qua nỗi sợ hãi
-              khi đứng trước đám đông và biến mỗi bài thuyết trình thành một trải nghiệm đáng nhớ.
-            </p>
+            <p className="full-description">{workshop.description}</p>
           </section>
         </main>
 
@@ -67,23 +99,33 @@ const WorkshopDetailPage = () => {
               <div className="progress-bar">
                 <div
                   className="progress-fill"
-                  style={{ width: `${((workshop.slots - workshop.slotsLeft) / workshop.slots) * 100}%` }}
+                  style={{ width: `${fillPercent}%` }}
                 ></div>
               </div>
-              <p>Đã đăng ký {workshop.slots - workshop.slotsLeft}/{workshop.slots} chỗ</p>
+              <p>Đã đăng ký {registeredCount}/{capacity} chỗ</p>
             </div>
-            <button className="register-button" disabled={workshop.slotsLeft === 0}>
-              {workshop.slotsLeft === 0 ? 'Hết chỗ' : 'Đăng ký ngay'}
+            <button
+              className={`register-button ${isRegistered ? 'registered' : ''}`}
+              disabled={slotsLeft === 0 || isRegistered}
+            >
+              {isRegistered ? 'Đã đăng ký' : slotsLeft === 0 ? 'Hết chỗ' : 'Đăng ký ngay'}
             </button>
             <p className="reg-note">* Mã QR sẽ được gửi sau khi đăng ký thành công</p>
           </div>
 
           <div className="location-card">
             <h3>Địa điểm tổ chức</h3>
-            <p><strong>{workshop.location}</strong></p>
-            <p>Trường Đại học Công nghệ Thông tin - ĐHQG TP.HCM</p>
+            <p><strong>{workshop.location || 'Chưa xác định'}</strong></p>
             <div className="map-placeholder">
-              <span>Sơ đồ phòng đang tải...</span>
+              {workshop.floor_plan ? (
+                <img
+                  src={`${SERVER_BASE_URL}${workshop.floor_plan}`}
+                  alt="Sơ đồ tầng"
+                  style={{ width: '100%', borderRadius: '8px', marginTop: '8px' }}
+                />
+              ) : (
+                <span>Sơ đồ phòng đang tải...</span>
+              )}
             </div>
           </div>
         </aside>
