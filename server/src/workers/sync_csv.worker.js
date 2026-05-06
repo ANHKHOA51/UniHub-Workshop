@@ -2,6 +2,8 @@ import { Worker } from 'bullmq';
 import fs from 'fs';
 import csv from 'csv-parser';
 import { UserModel } from '../models/user.model.js';
+import bcrypt from 'bcrypt';
+import dotenv from 'dotenv/config';
 
 const redisConnection = {
     url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
@@ -61,7 +63,7 @@ export const syncCSVWorker = new Worker('sync-csv', async (job) => {
             mssv: row.mssv,
             email: row.email,
             name: row.name,
-            password: generatePassword(row.name, row.mssv),
+            password: generateHashedPassword(row.name, row.mssv),
             role: 'STUDENT'
         });
 
@@ -93,7 +95,7 @@ async function processBatch(batch) {
 
 // "Nguyen Van A" - "21127402"
 // "nguyenvana7402"
-function generatePassword(name, mssv) {
+function generateHashedPassword(name, mssv) {
     if (!name || !mssv) return null;
 
     const last4 = mssv.slice(-4);
@@ -103,7 +105,10 @@ function generatePassword(name, mssv) {
         .trim()
         .replace(/\s+/g, "");
 
-    return normalizedName + last4;
+    const password = normalizedName + last4;
+
+    const saltRounds = parseInt(process.env.SALT_ROUNDS, 10);
+    return bcrypt.hashSync(password, saltRounds);
 }
 
 // Worker event listeners
