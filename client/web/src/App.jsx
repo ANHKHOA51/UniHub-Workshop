@@ -7,6 +7,7 @@ import RegisteredWorkshopsPage from './pages/workshop/RegisteredWorkshopsPage'
 import AdminWorkshopsPage from './pages/admin/AdminWorkshopsPage'
 import CreateWorkshopPage from './pages/admin/CreateWorkshopPage'
 import AdminWorkshopDetailPage from './pages/admin/AdminWorkshopDetailPage'
+import PrivateRoute from './components/PrivateRoute'
 import './App.css'
 
 function App() {
@@ -76,12 +77,40 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/workshops" element={<WorkshopsPage />} />
-        <Route path="/workshops/:id" element={<WorkshopDetailPage />} />
-        <Route path="/my-workshops" element={<RegisteredWorkshopsPage />} />
-        <Route path="/admin/workshops" element={<AdminWorkshopsPage />} />
-        <Route path="/admin/workshops/create" element={<CreateWorkshopPage />} />
-        <Route path="/admin/workshops/:id" element={<AdminWorkshopDetailPage />} />
+
+        {/* Student Routes */}
+        <Route path="/workshops" element={
+          <PrivateRoute allowedRoles={['student']}>
+            <WorkshopsPage />
+          </PrivateRoute>
+        } />
+        <Route path="/workshops/:id" element={
+          <PrivateRoute allowedRoles={['student']}>
+            <WorkshopDetailPage />
+          </PrivateRoute>
+        } />
+        <Route path="/my-workshops" element={
+          <PrivateRoute allowedRoles={['student']}>
+            <RegisteredWorkshopsPage />
+          </PrivateRoute>
+        } />
+
+        {/* Admin Routes */}
+        <Route path="/admin/workshops" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AdminWorkshopsPage />
+          </PrivateRoute>
+        } />
+        <Route path="/admin/workshops/create" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <CreateWorkshopPage />
+          </PrivateRoute>
+        } />
+        <Route path="/admin/workshops/:id" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AdminWorkshopDetailPage />
+          </PrivateRoute>
+        } />
       </Routes>
     </div>
   )
