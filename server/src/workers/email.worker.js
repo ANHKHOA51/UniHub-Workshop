@@ -6,6 +6,8 @@ const redisConnection = {
     url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 };
 
+console.log('Email worker running...');
+
 // Initialize nodemailer transporter
 const transporter = nodemailer.createTransport({
     service: 'gmail',

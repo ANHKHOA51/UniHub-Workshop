@@ -7,6 +7,8 @@ const redisConnection = {
     url: process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 };
 
+console.log('AI summary worker running...');
+
 export const aiSummaryWorker = new Worker('ai-summary', async (job) => {
     try {
         console.log(`[AI Worker] Processing job ${job.id} for workshop AI summary...`);
