@@ -59,3 +59,45 @@ export const registerPaidWorkshop = async (workshopId, idempotencyKey) => {
   const response = await workshopApi.registerPaidWorkshop(workshopId, idempotencyKey);
   return response;
 };
+
+export const updateWorkshop = async (id, data) => {
+  if (!id) throw new Error('Workshop ID is required.');
+  const response = await workshopApi.updateWorkshop(id, data);
+  return normalizeWorkshop(response.workshop || response);
+};
+
+export const deleteWorkshop = async (id) => {
+  if (!id) throw new Error('Workshop ID is required.');
+  const response = await workshopApi.deleteWorkshop(id);
+  return response;
+};
+
+export const createWorkshop = async (data) => {
+  const formData = new FormData();
+  
+  // Append basic info
+  formData.append('title', data.title);
+  formData.append('description', data.description);
+  formData.append('time', data.time);
+  formData.append('speaker', data.speaker);
+  formData.append('location', data.location);
+  formData.append('price', data.price);
+  formData.append('capacity', data.capacity);
+
+  // Append files
+  if (data.floor_plan) {
+    formData.append('floor_plan', data.floor_plan);
+  }
+  if (data.pdf) {
+    formData.append('pdf', data.pdf);
+  }
+
+  const response = await workshopApi.createWorkshop(formData);
+  return normalizeWorkshop(response.workshop || response);
+};
+
+export const getWorkshopRegistrations = async (id) => {
+  if (!id) throw new Error('Workshop ID is required.');
+  const data = await workshopApi.fetchWorkshopRegistrations(id);
+  return data;
+};

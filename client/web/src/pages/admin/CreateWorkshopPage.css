@@ -61,6 +61,7 @@ label {
 input[type="text"],
 input[type="number"],
 input[type="date"],
+input[type="datetime-local"],
 select,
 textarea {
   padding: 0.875rem 1rem;
@@ -182,6 +183,23 @@ textarea {
 .btn-cancel:hover {
   background: var(--bg-secondary);
   color: var(--text-main);
+}
+
+.btn-reset {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #fee2e2;
+  padding: 0.875rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-right: auto; /* Push reset to the left */
+}
+
+.btn-reset:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
 }
 
 @media (max-width: 768px) {

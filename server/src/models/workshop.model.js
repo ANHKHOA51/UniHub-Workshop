@@ -46,5 +46,20 @@ export const WorkshopModel = {
             .select('workshops.*', 'registrations.status', 'registrations.qr_code')
             .select(db.raw('(SELECT COUNT(*)::integer FROM registrations WHERE workshop_id = workshops.id) as registered_count'))
             .groupBy('workshops.id', 'registrations.status', 'registrations.qr_code');
+    },
+
+    async findRegistrationsByWorkshopId(workshopId) {
+        return db('registrations')
+            .join('users', 'registrations.user_id', 'users.id')
+            .where('registrations.workshop_id', workshopId)
+            .select(
+                'users.mssv',
+                'users.name',
+                'users.email',
+                'registrations.status',
+                'registrations.check_in',
+                'registrations.created_at'
+            )
+            .orderBy('registrations.created_at', 'desc');
     }
 };

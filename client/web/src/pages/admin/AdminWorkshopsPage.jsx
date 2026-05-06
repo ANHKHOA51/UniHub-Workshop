@@ -1,63 +1,81 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useWorkshops, useUpdateWorkshop, useDeleteWorkshop } from '../../hooks/useWorkShopData';
 import './AdminWorkshopsPage.css';
-
-// Using the same mock data for consistency
-const MOCK_WORKSHOPS = [
-  {
-    id: 1,
-    title: 'Kỹ năng thuyết trình ấn tượng',
-    time: '08:00 - 11:00 05/05/2026',
-    location: 'Hội trường A',
-    speaker: 'ThS. Nguyễn Văn A',
-    price: 0,
-    slots: 60,
-    slotsLeft: 12,
-    summary: 'Buổi workshop này sẽ giúp bạn nắm vững các kỹ thuật thuyết trình hiện đại, từ cách xây dựng cấu trúc bài nói logic đến việc sử dụng ngôn ngữ hình thể để thu hút khán giả. Bạn sẽ được thực hành trực tiếp và nhận phản hồi từ chuyên gia.',
-    status: 'Đang mở'
-  },
-  {
-    id: 2,
-    title: 'Lập trình Web hiện đại với React',
-    time: '14:00 - 17:00 06/05/2026',
-    location: 'Phòng Lab 2',
-    speaker: 'Kỹ sư Trần Thị B',
-    price: 50000,
-    slots: 40,
-    slotsLeft: 5,
-    summary: 'Khám phá hệ sinh thái React hiện đại, từ cơ bản đến nâng cao. Tìm hiểu cách tối ưu hiệu năng và quản lý state hiệu quả.',
-    status: 'Đang mở'
-  },
-  {
-    id: 3,
-    title: 'Tư duy thiết kế (Design Thinking)',
-    time: '09:00 - 12:00 07/05/2026',
-    location: 'Phòng 402 - Nhà C',
-    speaker: 'Designer Lê Văn C',
-    price: 0,
-    slots: 50,
-    slotsLeft: 48,
-    status: 'Đang mở'
-  },
-  {
-    id: 4,
-    title: 'Quản lý tài chính cá nhân cho sinh viên',
-    time: '13:30 - 16:30 08/05/2026',
-    location: 'Phòng 201 - Nhà B',
-    speaker: 'Chuyên gia tài chính Phạm D',
-    price: 0,
-    slots: 100,
-    slotsLeft: 0,
-    status: 'Đã hết chỗ'
-  }
-];
 
 const AdminWorkshopsPage = () => {
   const navigate = useNavigate();
+  const { workshops, loading, error } = useWorkshops();
+  const updateMutation = useUpdateWorkshop();
+  const deleteMutation = useDeleteWorkshop();
+
+  const [editingWorkshop, setEditingWorkshop] = useState(null);
+  const [deletingWorkshop, setDeletingWorkshop] = useState(null);
+  const [editFormData, setEditFormData] = useState({ location: '', time: '' });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const totalWorkshops = workshops.length;
+  const totalRegistered = workshops.reduce((sum, ws) => sum + (ws.registered_count || 0), 0);
+  const totalCheckedIn = workshops.reduce((sum, ws) => sum + (ws.checked_in_count || 0), 0);
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Chưa xác định';
+    return new Date(dateString).toLocaleString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const toDateTimeLocal = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const handleEditClick = (ws) => {
+    setEditingWorkshop(ws);
+    setEditFormData({
+      location: ws.location || '',
+      time: toDateTimeLocal(ws.time)
+    });
+  };
+
+  const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await updateMutation.mutateAsync({
+        id: editingWorkshop.id,
+        data: editFormData
+      });
+      setEditingWorkshop(null);
+    } catch (err) {
+      console.error('Update failed:', err);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteMutation.mutateAsync(deletingWorkshop.id);
+      setDeletingWorkshop(null);
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
 
   return (
     <div className="admin-workshops-container">
-      <div className="admin-sidebar">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && <div className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)}></div>}
+
+      <div className={`admin-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="admin-logo">UniHub Admin</div>
         <nav className="admin-nav">
           <button className="admin-nav-item active">
@@ -76,7 +94,12 @@ const AdminWorkshopsPage = () => {
       <div className="admin-main-content">
         <header className="admin-header">
           <div className="header-title">
-            <h1>Danh sách Workshop</h1>
+            <div className="title-with-menu">
+              <button className="hamburger-btn" onClick={() => setIsSidebarOpen(true)}>
+                <i className="fa-solid fa-bars"></i>
+              </button>
+              <h1>Danh sách Workshop</h1>
+            </div>
             <p>Quản lý và theo dõi các buổi workshop trong hệ thống</p>
           </div>
           <div className="header-actions">
@@ -89,69 +112,172 @@ const AdminWorkshopsPage = () => {
         <div className="admin-stats-cards">
           <div className="stat-card">
             <div className="stat-label">Tổng số Workshop</div>
-            <div className="stat-value">24</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Đang diễn ra</div>
-            <div className="stat-value">8</div>
+            <div className="stat-value">{totalWorkshops}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Tổng lượt đăng ký</div>
-            <div className="stat-value">1,240</div>
+            <div className="stat-value">{totalRegistered.toLocaleString()}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Tổng lượt Check-in</div>
+            <div className="stat-value">{totalCheckedIn.toLocaleString()}</div>
           </div>
         </div>
 
         <div className="admin-table-container">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Workshop</th>
-                <th>Diễn giả</th>
-                <th>Ngày & Giờ</th>
-                <th>Địa điểm</th>
-                <th>Sức chứa</th>
-                <th>Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_WORKSHOPS.map((ws) => (
-                <tr key={ws.id}>
-                  <td>
-                    <div className="workshop-cell">
-                      <span className="workshop-name">{ws.title}</span>
-                    </div>
-                  </td>
-                  <td>{ws.speaker}</td>
-                  <td>
-                    <div className="datetime-cell">
-                      <span>{ws.time}</span>
-                    </div>
-                  </td>
-                  <td>{ws.location}</td>
-                  <td>
-                    <div className="slots-cell">
-                      <span>{ws.slots - ws.slotsLeft}/{ws.slots}</span>
-                      <div className="progress-bar">
-                        <div
-                          className="progress-fill"
-                          style={{ width: `${((ws.slots - ws.slotsLeft) / ws.slots) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-icon-action" title="Sửa"><i className="fa-solid fa-pen"></i></button>
-                      <button className="btn-icon-action" title="Xóa"><i className="fa-solid fa-trash"></i></button>
-                      <button className="btn-icon-action" title="Xem chi tiết"><i className="fa-solid fa-eye"></i></button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div className="loading-container">Đang tải dữ liệu...</div>
+          ) : error ? (
+            <div className="error-container">Không thể tải danh sách workshop</div>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Workshop</th>
+                  <th>Diễn giả</th>
+                  <th>Ngày & Giờ</th>
+                  <th>Địa điểm</th>
+                  <th>Người tham gia</th>
+                  <th>Check-in</th>
+                  <th>Hành động</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {workshops.map((ws) => (
+                  <tr key={ws.id}>
+                    <td>
+                      <div className="workshop-cell">
+                        <span className="workshop-name">{ws.title}</span>
+                      </div>
+                    </td>
+                    <td>{ws.speaker}</td>
+                    <td>
+                      <div className="datetime-cell">
+                        <span>{formatDate(ws.time)}</span>
+                      </div>
+                    </td>
+                    <td>{ws.location}</td>
+                    <td>
+                      <div className="slots-cell">
+                        <span>{ws.registered_count}/{ws.capacity}</span>
+                        <div className="progress-bar">
+                          <div
+                            className="progress-fill"
+                            style={{ width: `${Math.min(100, (ws.registered_count / ws.capacity) * 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="slots-cell">
+                        <span>{ws.checked_in_count}/{ws.registered_count}</span>
+                        <div className="progress-bar">
+                          <div
+                            className="progress-fill checkin-fill"
+                            style={{ width: `${ws.registered_count > 0 ? Math.min(100, (ws.checked_in_count / ws.registered_count) * 100) : 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button 
+                          className="btn-icon-action" 
+                          title="Sửa"
+                          onClick={() => handleEditClick(ws)}
+                        >
+                          <i className="fa-solid fa-pen"></i>
+                        </button>
+                        <button 
+                          className="btn-icon-action btn-delete" 
+                          title="Xóa"
+                          onClick={() => setDeletingWorkshop(ws)}
+                        >
+                          <i className="fa-solid fa-trash"></i>
+                        </button>
+                        <button 
+                          className="btn-icon-action" 
+                          title="Xem chi tiết"
+                          onClick={() => navigate(`/admin/workshops/${ws.id}`)}
+                        >
+                          <i className="fa-solid fa-eye"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingWorkshop && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2>Cập nhật Workshop</h2>
+              <button className="btn-close-modal" onClick={() => setEditingWorkshop(null)}>&times;</button>
+            </div>
+            <form onSubmit={handleUpdateSubmit}>
+              <div className="modal-body">
+                <p className="edit-workshop-title">{editingWorkshop.title}</p>
+                <div className="form-group">
+                  <label>Địa điểm</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.location}
+                    onChange={(e) => setEditFormData({...editFormData, location: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Thời gian</label>
+                  <input 
+                    type="datetime-local" 
+                    value={editFormData.time}
+                    onChange={(e) => setEditFormData({...editFormData, time: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={() => setEditingWorkshop(null)}>Hủy</button>
+                <button type="submit" className="btn-primary" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingWorkshop && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-small">
+            <div className="modal-header">
+              <h2>Xác nhận xóa</h2>
+              <button className="btn-close-modal" onClick={() => setDeletingWorkshop(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p>Bạn có chắc chắn muốn xóa workshop <strong>{deletingWorkshop.title}</strong>?</p>
+              <p className="delete-warning">Hành động này không thể hoàn tác.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setDeletingWorkshop(null)}>Hủy</button>
+              <button 
+                className="btn-danger" 
+                onClick={handleDeleteConfirm}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
