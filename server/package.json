@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "start-workers": "pm2 start ./ecosystem.config.cjs",
+    "stop-workers": "pm2 stop all",
+    "log-workers": "pm2 logs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -30,6 +33,7 @@
     "opossum": "^9.0.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
+    "pm2": "^7.0.1",
     "redis": "^5.12.1"
   }
 }

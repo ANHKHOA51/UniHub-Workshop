@@ -9,6 +9,8 @@ const redisConnection = {
 
 const BATCH_SIZE = 1000;
 
+console.log('CSV sync worker running...');
+
 export const syncCSVWorker = new Worker('sync-csv', async (job) => {
     console.log(`Processing job ${job.id}...`);
     const { filePath } = job.data || {};
