@@ -36,7 +36,7 @@ export const updateWorkshop = async (id, data) => {
 
 export const createWorkshop = async (workshopData, pdfFile, floorPlanFile) => {
     const createdWorkshop = await WorkshopModel.create(workshopData);
-    const workshopId = createdWorkshop.workshop_id;
+    const workshopId = createdWorkshop.id;
 
     try {
         await fs.mkdir(STATIC_DOCS_DIR, { recursive: true });
@@ -44,22 +44,24 @@ export const createWorkshop = async (workshopData, pdfFile, floorPlanFile) => {
 
         if (floorPlanFile) {
             const ext = path.extname(floorPlanFile.originalname);
-            const floorPlanFileName = `${workshopId}_floorplan${ext}`;
+            const timestamp = Date.now();
+            const floorPlanFileName = `${workshopId}_${timestamp}_floorplan${ext}`;
             const floorPlanPath = path.join(STATIC_IMAGES_DIR, floorPlanFileName);
-            
+
             await fs.writeFile(floorPlanPath, floorPlanFile.buffer);
-            
+
             const floorPlanUrl = `/images/${floorPlanFileName}`;
             await WorkshopModel.update(workshopId, { floor_plan: floorPlanUrl });
             createdWorkshop.floor_plan = floorPlanUrl;
         }
 
         if (pdfFile) {
-            const pdfFileName = `${workshopId}.pdf`;
+            const timestamp = Date.now();
+            const pdfFileName = `${workshopId}_${timestamp}.pdf`;
             const pdfPath = path.join(STATIC_DOCS_DIR, pdfFileName);
-            
+
             await fs.writeFile(pdfPath, pdfFile.buffer);
-            
+
             await addAISummaryJob(workshopId, {
                 originalname: pdfFile.originalname,
                 mimetype: pdfFile.mimetype,
@@ -88,5 +90,13 @@ export const deleteWorkshop = async (id) => {
 
 export const getWorkshopsByUser = async (userId) => {
     return await WorkshopModel.findByUserId(userId);
+};
+
+export const getWorkshopRegistrations = async (workshopId) => {
+    const workshop = await WorkshopModel.findById(workshopId);
+    if (!workshop) {
+        throw { status: 404, message: 'Workshop not found' };
+    }
+    return await WorkshopModel.findRegistrationsByWorkshopId(workshopId);
 };
 

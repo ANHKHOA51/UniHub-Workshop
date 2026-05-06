@@ -42,6 +42,11 @@ export const aiSummaryWorker = new Worker('ai-summary', async (job) => {
 
         await parser.destroy();
 
+        console.log(`[AI Worker] Extracted text length: ${text?.length || 0}`);
+        if (text) {
+            console.log(`[AI Worker] First 200 chars of text: ${text.substring(0, 200)}`);
+        }
+
         if (!text || text.trim().length === 0) {
             throw new Error('No text extracted from PDF or PDF is empty');
         }
@@ -70,7 +75,7 @@ export const aiSummaryWorker = new Worker('ai-summary', async (job) => {
     }
 }, {
     connection: redisConnection,
-    concurrency: 2,
+    concurrency: 1,
     settings: {
         lockDuration: 60000,
         lockRenewTime: 30000,
@@ -92,15 +97,24 @@ async function callOpenRouter(text) {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                "model": "llama-3.3-70b-instruct:free",
+                "model": "openrouter/auto",
+                "max_tokens": 350,
+                "temperature": 0.5,
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an AI assistant for the UniHub Workshop platform. Your task is to summarize a workshop's introduction document into a concise and engaging version for display on the workshop detail page."
+                        "content": "Bạn là chuyên gia tóm tắt nội dung. Nhiệm vụ của bạn là tạo bản tóm tắt CỰC KỲ NGẮN GỌN (DƯỚI 100 TỪ) và CỤ THỂ. Tuyệt đối không chào hỏi. Tập trung vào giá trị cốt lõi. LUÔN LUÔN TRẢ LỜI BẰNG TIẾNG VIỆT."
                     },
                     {
                         "role": "user",
-                        "content": `Summarize the following workshop introduction text. Capture the key points and value for students while keeping it brief (under 200 words).\n\nIntroduction Text:\n${text}`
+                        "content": `YÊU CẦU BẮT BUỘC: Tóm tắt văn bản sau trong TỐI ĐA 100 TỪ (3-5 câu). Không chào hỏi, không dẫn dắt.
+
+Yêu cầu nội dung:
+1. Workshop này nói về cái gì?
+2. Sinh viên sẽ học được gì hoặc nhận được giá trị gì cụ thể?
+
+Văn bản giới thiệu:
+${text}`
                     }
                 ]
             })

@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useCreateWorkshop } from '../../hooks/useWorkShopData';
 import './CreateWorkshopPage.css';
 
 const CreateWorkshopPage = () => {
   const navigate = useNavigate();
+  const createMutation = useCreateWorkshop();
+  const [formKey, setFormKey] = useState(Date.now());
+  
   const [formData, setFormData] = useState({
     title: '',
     speaker: '',
@@ -27,16 +31,88 @@ const CreateWorkshopPage = () => {
 
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
-    if (type === 'floorPlan') setFloorPlan(file);
-    else if (type === 'introPdf') setIntroPdf(file);
+    if (type === 'floorPlan') {
+      if (file && file.size > 10 * 1024 * 1024) {
+        alert('Sơ đồ phòng không được vượt quá 10MB.');
+        e.target.value = '';
+        return;
+      }
+      const allowedImageTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (file && !allowedImageTypes.includes(file.type)) {
+        alert('Sơ đồ phòng chỉ chấp nhận định dạng PNG hoặc JPG/JPEG.');
+        e.target.value = '';
+        return;
+      }
+      setFloorPlan(file);
+    } else if (type === 'introPdf') {
+      if (file && file.size > 10 * 1024 * 1024) {
+        alert('Tài liệu PDF không được vượt quá 10MB.');
+        e.target.value = '';
+        return;
+      }
+      setIntroPdf(file);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    if (!formData.title || !formData.speaker || !formData.time || !formData.location || !formData.capacity || !formData.description) {
+      alert('Vui lòng điền đầy đủ các trường bắt buộc.');
+      return false;
+    }
+
+    if (new Date(formData.time) < new Date()) {
+      alert('Thời gian tổ chức phải ở trong tương lai.');
+      return false;
+    }
+
+    if (parseInt(formData.capacity) <= 0) {
+      alert('Sức chứa phải lớn hơn 0.');
+      return false;
+    }
+
+    if (!floorPlan) {
+      alert('Vui lòng tải lên sơ đồ phòng.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, we would use FormData to send files to API
-    console.log('Submitting workshop:', { ...formData, floorPlan, introPdf });
-    alert('Workshop created successfully! (Mock)');
-    navigate('/admin/workshops');
+    
+    if (!validateForm()) return;
+
+    try {
+      await createMutation.mutateAsync({
+        ...formData,
+        floor_plan: floorPlan,
+        pdf: introPdf
+      });
+      
+      alert('Workshop đã được tạo thành công!');
+      navigate('/admin/workshops');
+    } catch (err) {
+      console.error('Failed to create workshop:', err);
+      alert('Đã xảy ra lỗi khi tạo workshop. Vui lòng thử lại.');
+    }
+  };
+
+  const handleReset = () => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa tất cả các trường đã nhập?')) {
+      setFormData({
+        title: '',
+        speaker: '',
+        time: '',
+        location: '',
+        price: 0,
+        capacity: '',
+        description: ''
+      });
+      setFloorPlan(null);
+      setIntroPdf(null);
+      setFormKey(Date.now()); // Force re-render of file inputs
+    }
   };
 
   return (
@@ -71,7 +147,7 @@ const CreateWorkshopPage = () => {
           </div>
         </header>
 
-        <form className="create-workshop-form" onSubmit={handleSubmit}>
+        <form className="create-workshop-form" onSubmit={handleSubmit} key={formKey}>
           <div className="form-card">
             <div className="form-section">
               <h2>Thông tin cơ bản</h2>
@@ -107,13 +183,12 @@ const CreateWorkshopPage = () => {
               <div className="form-group">
                 <label htmlFor="time">Thời gian tổ chức <span className="required">*</span></label>
                 <input 
-                  type="text" 
+                  type="datetime-local" 
                   id="time" 
                   name="time" 
                   value={formData.time} 
                   onChange={handleChange} 
                   required 
-                  placeholder="Ví dụ: 08:00 - 11:00 05/05/2026"
                 />
               </div>
               <div className="form-group">
@@ -185,13 +260,13 @@ const CreateWorkshopPage = () => {
                     <input 
                       type="file" 
                       id="floorPlan" 
-                      accept="image/*" 
+                      accept="image/png, image/jpeg" 
                       onChange={(e) => handleFileChange(e, 'floorPlan')}
                       required
                     />
                     <div className="file-preview">
                       <i className="fa-solid fa-map"></i>
-                      <span>{floorPlan ? floorPlan.name : 'Chọn ảnh sơ đồ phòng'}</span>
+                      <span>{floorPlan ? floorPlan.name : 'Chọn ảnh sơ đồ phòng (PNG, JPG)'}</span>
                     </div>
                   </div>
                 </div>
@@ -215,9 +290,18 @@ const CreateWorkshopPage = () => {
             </div>
 
             <div className="form-actions">
+              <button type="button" className="btn-reset" onClick={handleReset}>Xóa tất cả</button>
               <button type="button" className="btn-cancel" onClick={() => navigate('/admin/workshops')}>Hủy</button>
-              <button type="submit" className="btn-submit">
-                <i className="fa-solid fa-check"></i> Tạo Workshop
+              <button 
+                type="submit" 
+                className="btn-submit" 
+                disabled={createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <>Đang xử lý...</>
+                ) : (
+                  <><i className="fa-solid fa-check"></i> Tạo Workshop</>
+                )}
               </button>
             </div>
           </div>

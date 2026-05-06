@@ -82,3 +82,64 @@ export const registerPaidWorkshop = async (workshopId, idempotencyKey) => {
 
   return response.json();
 };
+
+export const updateWorkshop = async (id, data) => {
+  const response = await fetch(`${API_BASE_URL}/workshops/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `HTTP error ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const deleteWorkshop = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/workshops/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `HTTP error ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const createWorkshop = async (formData) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE_URL}/workshops`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `HTTP error ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const fetchWorkshopRegistrations = async (id) => {
+  const response = await fetch(`${API_BASE_URL}/workshops/${id}/registrations`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `HTTP error ${response.status}`);
+  }
+
+  return response.json();
+};

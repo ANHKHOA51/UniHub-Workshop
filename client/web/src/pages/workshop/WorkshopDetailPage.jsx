@@ -152,7 +152,7 @@ const WorkshopDetailPage = () => {
                 <img
                   src={`${SERVER_BASE_URL}${workshop.floor_plan}`}
                   alt="Sơ đồ tầng"
-                  style={{ width: '100%', borderRadius: '8px', marginTop: '8px' }}
+                  className="floor-plan-image"
                 />
               ) : (
                 <span>Sơ đồ phòng đang tải...</span>

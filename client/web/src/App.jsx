@@ -6,6 +6,7 @@ import WorkshopDetailPage from './pages/workshop/WorkshopDetailPage'
 import RegisteredWorkshopsPage from './pages/workshop/RegisteredWorkshopsPage'
 import AdminWorkshopsPage from './pages/admin/AdminWorkshopsPage'
 import CreateWorkshopPage from './pages/admin/CreateWorkshopPage'
+import AdminWorkshopDetailPage from './pages/admin/AdminWorkshopDetailPage'
 import './App.css'
 
 function App() {
@@ -80,6 +81,7 @@ function App() {
         <Route path="/my-workshops" element={<RegisteredWorkshopsPage />} />
         <Route path="/admin/workshops" element={<AdminWorkshopsPage />} />
         <Route path="/admin/workshops/create" element={<CreateWorkshopPage />} />
+        <Route path="/admin/workshops/:id" element={<AdminWorkshopDetailPage />} />
       </Routes>
     </div>
   )

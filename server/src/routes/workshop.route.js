@@ -1,5 +1,5 @@
 import express from 'express';
-import { listWorkshops, getWorkshop, createWorkshop, updateWorkshop, deleteWorkshop, listStudentWorkshops } from '../controllers/workshop.controller.js';
+import { listWorkshops, getWorkshop, createWorkshop, updateWorkshop, deleteWorkshop, listStudentWorkshops, listWorkshopRegistrations } from '../controllers/workshop.controller.js';
 import { isAuthorized } from '../middlewares/auth.middleware.js';
 import { validateWorkshopFiles } from '../middlewares/upload.middleware.js';
 
@@ -40,6 +40,12 @@ router.delete(
     '/:id',
     isAuthorized(['admin']),
     deleteWorkshop
+);
+
+router.get(
+    '/:id/registrations',
+    isAuthorized(['admin', 'staff']),
+    listWorkshopRegistrations
 );
 
 export default router;

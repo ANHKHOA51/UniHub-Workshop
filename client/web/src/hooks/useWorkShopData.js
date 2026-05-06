@@ -67,3 +67,49 @@ export const useRegisterPaidWorkshop = () => {
     },
   });
 };
+
+export const useUpdateWorkshop = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => workshopService.updateWorkshop(id, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['workshops'] });
+      queryClient.invalidateQueries({ queryKey: ['workshop', id] });
+    },
+  });
+};
+
+export const useDeleteWorkshop = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => workshopService.deleteWorkshop(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshops'] });
+    },
+  });
+};
+
+export const useCreateWorkshop = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => workshopService.createWorkshop(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshops'] });
+    },
+  });
+};
+
+export const useWorkshopRegistrations = (id) => {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['workshopRegistrations', id],
+    queryFn: () => workshopService.getWorkshopRegistrations(id),
+    enabled: !!id,
+  });
+
+  return {
+    registrations: data || [],
+    loading: isLoading,
+    error: error?.message || null,
+    refetch,
+  };
+};
