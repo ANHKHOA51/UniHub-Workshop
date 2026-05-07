@@ -14,7 +14,14 @@ export const RegistrationModel = {
     },
 
     async findByWorkshopId(workshopId) {
-        return db('registrations').where({ workshop_id: workshopId });
+        return db('registrations')
+            .leftJoin('users', 'registrations.user_id', 'users.id')
+            .where({ 'registrations.workshop_id': workshopId })
+            .select(
+                'registrations.*',
+                'users.name as student_name',
+                'users.email as student_email'
+            );
     },
 
     async findByUserAndWorkshop(userId, workshopId) {

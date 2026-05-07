@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import router from './routes/index.js';
+import {loggerMiddleware} from './middlewares/log.middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+app.use(loggerMiddleware)
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'static')));

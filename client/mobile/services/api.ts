@@ -125,3 +125,22 @@ export async function fetchWorkshopById(id: string): Promise<Workshop> {
   const data = await handleResponse<WorkshopRow>(response);
   return mapWorkshop(data);
 }
+
+/** Lấy danh sách đăng ký của 1 workshop */
+export async function fetchWorkshopRegistrations(workshopId: string): Promise<any[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/workshops/${workshopId}/registrations`, { headers });
+  const data = await handleResponse<any[]>(response);
+  
+  // Map backend fields to frontend Registration type
+  return data.map(row => ({
+    id: String(row.id),
+    userId: String(row.user_id),
+    workshopId: String(row.workshop_id),
+    studentName: row.student_name || 'N/A',
+    studentEmail: row.student_email || 'N/A',
+    checkedInAt: row.check_in || null,
+    pendingSync: false,
+    status: row.status || 'success'
+  }));
+}

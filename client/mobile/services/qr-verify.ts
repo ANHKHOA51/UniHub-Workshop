@@ -4,6 +4,13 @@
 // ============================================================
 
 import { USE_MOCK_DATA } from '@/constants/config';
+import * as ed from '@noble/ed25519';
+import { ED25519_PUBLIC_KEY } from '@/constants/config';
+
+import { sha512 } from '@noble/hashes/sha2.js';
+
+ed.hashes.sha512 = sha512;
+ed.hashes.sha512Async = async (msg) => sha512(msg);
 
 /**
  * Cấu trúc mã QR: "{registration_id}.{signature_hex}"
@@ -69,11 +76,6 @@ export async function verifyQrCode(qrData: string): Promise<QrParseResult> {
   const signatureHex = trimmed.substring(dotIndex + 1);
 
   try {
-    // Import Ed25519 verification
-    // @noble/ed25519 là thư viện pure JS, chạy tốt trên React Native
-    const ed = await import('@noble/ed25519');
-    const { ED25519_PUBLIC_KEY } = await import('@/constants/config');
-
     // Decode public key from base64
     const publicKeyBytes = Uint8Array.from(atob(ED25519_PUBLIC_KEY), (c) => c.charCodeAt(0));
 

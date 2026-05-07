@@ -48,10 +48,19 @@ export default function WorkshopListScreen() {
       const data = await database.getWorkshops();
       setWorkshops(data);
 
+      // Fetch và lưu danh sách đăng ký cho từng workshop để hỗ trợ quét QR offline
+      for (const w of data) {
+        try {
+          const regs = await api.fetchWorkshopRegistrations(w.id);
+          await database.saveRegistrations(regs);
+        } catch (regError) {
+          console.warn(`Failed to fetch registrations for workshop ${w.id}:`, regError);
+        }
+      }
+
       const pending = await database.countPendingSync();
       setPendingCount(pending);
     } catch (error) {
-      console.error('Failed to load workshops:', error);
       // Nếu API lỗi, vẫn thử đọc dữ liệu offline cũ
       try {
         const offlineData = await database.getWorkshops();

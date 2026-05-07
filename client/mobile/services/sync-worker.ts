@@ -4,7 +4,7 @@
 // ============================================================
 
 import { getPendingSyncRecords, clearPendingSync } from './database';
-import { SYNC_CHUNK_SIZE, API_BASE_URL, USE_MOCK_DATA } from '@/constants/config';
+import { SYNC_CHUNK_SIZE, API_BASE_URL } from '@/constants/config';
 import { SyncResponse } from '@/types';
 import * as SecureStore from 'expo-secure-store';
 import NetInfo from '@react-native-community/netinfo';
@@ -72,19 +72,10 @@ export async function syncNow(): Promise<void> {
     for (let i = 0; i < pendingRecords.length; i += SYNC_CHUNK_SIZE) {
       const chunk = pendingRecords.slice(i, i + SYNC_CHUNK_SIZE);
 
-      if (USE_MOCK_DATA) {
-        // Mock: giả lập sync thành công
-        await new Promise((r) => setTimeout(r, 500));
-        for (const record of chunk) {
-          await clearPendingSync(record.id);
-        }
-        continue;
-      }
-
       // Real API call
       try {
         const token = await SecureStore.getItemAsync('unihub_access_token');
-        const response = await fetch(`${API_BASE_URL}/checkins/sync`, {
+        const response = await fetch(`${API_BASE_URL}/registrations/checkins/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

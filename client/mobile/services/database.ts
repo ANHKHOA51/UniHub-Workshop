@@ -5,28 +5,56 @@
 
 import * as SQLite from 'expo-sqlite';
 import { Registration, Workshop } from '@/types';
-import { USE_MOCK_DATA } from '@/constants/config';
 
 let db: SQLite.SQLiteDatabase | null = null;
+
+// Schema version — increment when schema changes to force re-create tables
+const SCHEMA_VERSION = 2;
 
 /** Mở database connection */
 async function getDb(): Promise<SQLite.SQLiteDatabase> {
   if (!db) {
     db = await SQLite.openDatabaseAsync('unihub_checkin.db');
+    await migrateIfNeeded();
     await initTables();
   }
   return db;
 }
 
+/** Kiểm tra và migrate schema nếu cần */
+async function migrateIfNeeded(): Promise<void> {
+  if (!db) return;
+
+  // Tạo bảng lưu version
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS schema_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+  `);
+
+  const row = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+  );
+  const currentVersion = row ? parseInt(row.value, 10) : 0;
+
+  if (currentVersion < SCHEMA_VERSION) {
+    console.log(`[DB] Migrating schema from v${currentVersion} to v${SCHEMA_VERSION}...`);
+    // Drop old tables and let initTables() recreate them
+    await db.execAsync(`
+      DROP TABLE IF EXISTS registrations;
+      DROP TABLE IF EXISTS workshops;
+    `);
+    await db.runAsync(
+      "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', ?)",
+      [String(SCHEMA_VERSION)]
+    );
+  }
+}
+
 /** Khởi tạo bảng */
 async function initTables(): Promise<void> {
   if (!db) return;
-
-  // Xóa db cũ (reset)
-  await db.execAsync(`
-    DROP TABLE IF EXISTS registrations;
-    DROP TABLE IF EXISTS workshops;
-  `);
 
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS workshops (
@@ -53,7 +81,7 @@ async function initTables(): Promise<void> {
       student_email TEXT,
       status TEXT DEFAULT 'pending',
       qr_code TEXT,
-      checked_in TEXT,
+      check_in TEXT,
       pending_sync INTEGER DEFAULT 0,
       FOREIGN KEY (workshop_id) REFERENCES workshops(id)
     );
@@ -133,7 +161,7 @@ export async function saveRegistrations(registrations: Registration[]): Promise<
 
   for (const r of registrations) {
     await database.runAsync(
-      `INSERT OR REPLACE INTO registrations (id, user_id, workshop_id, student_name, student_email, checked_in, pending_sync)
+      `INSERT OR REPLACE INTO registrations (id, user_id, workshop_id, student_name, student_email, check_in, pending_sync)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [r.id, r.userId || '', r.workshopId, r.studentName, r.studentEmail, r.checkedInAt, r.pendingSync ? 1 : 0]
     );
@@ -150,7 +178,7 @@ export async function findRegistration(registrationId: string): Promise<Registra
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in: string | null;
+    check_in: string | null;
     pending_sync: number;
   }>('SELECT * FROM registrations WHERE id = ?', [registrationId]);
 
@@ -162,7 +190,7 @@ export async function findRegistration(registrationId: string): Promise<Registra
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in,
+    checkedInAt: row.check_in,
     pendingSync: row.pending_sync === 1,
   };
 }
@@ -180,7 +208,7 @@ export async function findRegistrationForWorkshop(
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in: string | null;
+    check_in: string | null;
     pending_sync: number;
   }>('SELECT * FROM registrations WHERE id = ? AND workshop_id = ?', [registrationId, workshopId]);
 
@@ -192,7 +220,7 @@ export async function findRegistrationForWorkshop(
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in,
+    checkedInAt: row.check_in,
     pendingSync: row.pending_sync === 1,
   };
 }
@@ -203,7 +231,7 @@ export async function markCheckedIn(registrationId: string): Promise<void> {
   const now = new Date().toISOString();
 
   await database.runAsync(
-    'UPDATE registrations SET checked_in = ?, pending_sync = 1 WHERE id = ?',
+    'UPDATE registrations SET check_in = ?, pending_sync = 1 WHERE id = ?',
     [now, registrationId]
   );
 }
@@ -218,9 +246,9 @@ export async function getPendingSyncRecords(): Promise<Registration[]> {
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in: string | null;
+    check_in: string | null;
     pending_sync: number;
-  }>('SELECT * FROM registrations WHERE pending_sync = 1 AND checked_in IS NOT NULL');
+  }>('SELECT * FROM registrations WHERE pending_sync = 1 AND check_in IS NOT NULL');
 
   return rows.map((row) => ({
     id: row.id,
@@ -228,7 +256,7 @@ export async function getPendingSyncRecords(): Promise<Registration[]> {
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in,
+    checkedInAt: row.check_in,
     pendingSync: true,
   }));
 }
@@ -261,10 +289,10 @@ export async function getRecentCheckins(workshopId: string, limit: number = 20):
     workshop_id: string;
     student_name: string;
     student_email: string;
-    checked_in: string | null;
+    check_in: string | null;
     pending_sync: number;
   }>(
-    'SELECT * FROM registrations WHERE workshop_id = ? AND checked_in IS NOT NULL ORDER BY checked_in DESC LIMIT ?',
+    'SELECT * FROM registrations WHERE workshop_id = ? AND check_in IS NOT NULL ORDER BY check_in DESC LIMIT ?',
     [workshopId, limit]
   );
 
@@ -274,7 +302,7 @@ export async function getRecentCheckins(workshopId: string, limit: number = 20):
     workshopId: row.workshop_id,
     studentName: row.student_name,
     studentEmail: row.student_email,
-    checkedInAt: row.checked_in,
+    checkedInAt: row.check_in,
     pendingSync: row.pending_sync === 1,
   }));
 }

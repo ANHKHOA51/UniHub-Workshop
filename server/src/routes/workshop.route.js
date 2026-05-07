@@ -30,6 +30,12 @@ router.get(
     getWorkshop
 );
 
+router.get(
+    '/:id/registrations',
+    isAuthorized(['admin', 'staff']),
+    listWorkshopRegistrations
+);
+
 router.put(
     '/:id',
     isAuthorized(['admin']),
