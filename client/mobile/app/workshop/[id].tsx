@@ -27,6 +27,7 @@ import * as database from '@/services/database';
 import { ScanResult } from '@/components/ScanResult';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SyncIndicator } from '@/components/SyncIndicator';
+import { onSyncStatusChange } from '@/services/sync-worker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.7;
@@ -51,10 +52,11 @@ export default function WorkshopDetailScreen() {
   const loadData = useCallback(async () => {
     if (!id) return;
     const workshops = await database.getWorkshops();
-    const found = workshops.find((w) => w.id === id) ?? null;
+    const found = workshops.find((w) => String(w.id) === String(id)) ?? null;
     setWorkshop(found);
 
-    const recent = await database.getRecentCheckins(id, 100);
+    // Load tất cả registrations đã check-in để hiển thị danh sách
+    const recent = await database.getRecentCheckins(String(id), 100);
     setCheckins(recent);
 
     const pending = await database.countPendingSync();
@@ -64,6 +66,19 @@ export default function WorkshopDetailScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+  // Đăng ký lắng nghe
+  const unsubscribe = onSyncStatusChange((status) => {
+    // Nếu vừa sync xong (isSyncing chuyển từ true sang false)
+    // hoặc đơn giản là mỗi lần Worker chạy xong một chu kỳ
+    if (!status.isSyncing) {
+      loadData(); 
+    }
+  });
+  // Quan trọng: Hủy lắng nghe khi thoát màn hình để tránh leak bộ nhớ
+  return () => unsubscribe();
+}, [loadData]);
 
   useEffect(() => {
     if (isScannerOpen) {
@@ -109,7 +124,7 @@ export default function WorkshopDetailScreen() {
 
       try {
         const verifyResult = await verifyQrCode(qrData);
-
+        console.log("🔍 QR Payload nhận được:", verifyResult.registrationId);
         if (!verifyResult.isValid || !verifyResult.registrationId) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setScanResult({
@@ -121,10 +136,12 @@ export default function WorkshopDetailScreen() {
         }
 
         const registrationId = verifyResult.registrationId;
-
+        const workshopIdStr = String(workshop.id);
+        const allRegs = await database.getRecentCheckins(workshopIdStr, 100);
+        console.log("📋 Danh sách ID trong máy:", allRegs.map(r => r.id));
         let registration = await database.findRegistrationForWorkshop(
           registrationId,
-          workshop.id
+          workshopIdStr
         );
 
         if (!registration) {
@@ -175,7 +192,6 @@ export default function WorkshopDetailScreen() {
 
         setTimeout(() => loadData(), 500);
       } catch (error) {
-        console.error('Scan error:', error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         setScanResult({
           status: 'INVALID_QR',

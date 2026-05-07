@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { WorkshopModel } from '../models/workshop.model.js';
+import { RegistrationModel } from '../models/registration.model.js';
 import { addAISummaryJob } from '../queues/ai_summary.queue.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -88,5 +89,9 @@ export const deleteWorkshop = async (id) => {
 
 export const getWorkshopsByUser = async (userId) => {
     return await WorkshopModel.findByUserId(userId);
+};
+
+export const getWorkshopRegistrations = async (workshopId) => {
+    return await RegistrationModel.findByWorkshopId(workshopId);
 };
 

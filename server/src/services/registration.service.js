@@ -288,3 +288,51 @@ export const handlePaymentWebhook = async (payload) => {
     }
 };
 
+/**
+ * Xử lý đồng bộ danh sách check-in từ Mobile gửi lên
+ * @param {Array} records Danh sách { registration_id, checked_in }
+ */
+export const syncCheckins = async (records) => {
+    const results = [];
+
+    for (const record of records) {
+        try {
+            const { registration_id, checked_in } = record;
+
+            // 1. Tìm bản ghi đăng ký
+            const registration = await RegistrationModel.findById(registration_id);
+
+            if (!registration) {
+                results.push({ registration_id, status: 'error', reason: 'Not found' });
+                continue;
+            }
+
+            // 2. Kiểm tra nếu đã check-in trên server rồi (Conflict)
+            if (registration.check_in) {
+                results.push({
+                    registration_id,
+                    status: 'conflict',
+                    reason: `Already checked-in at ${registration.check_in}`
+                });
+                continue;
+            }
+
+            // 3. Cập nhật thời gian check-in từ Mobile gửi lên
+            await RegistrationModel.update(registration_id, {
+                check_in: checked_in
+            });
+
+            results.push({ registration_id, status: 'success' });
+
+        } catch (err) {
+            results.push({
+                registration_id: record.registration_id,
+                status: 'error',
+                reason: err.message
+            });
+        }
+    }
+
+    return results;
+};
+

@@ -27,5 +27,5 @@ export const generateQrData = (payload) => {
     
     const signature = signatureBuffer.toString('hex');
     
-    return `${payload}.SIG_${signature}`;
+    return `${payload}.${signature}`;
 };

@@ -101,3 +101,22 @@ async function verifyMoMoSignature(payload, momoSignature) {
     return computedSignature === momoSignature;
 }
 
+export const syncCheckins = async (req, res) => {
+    try {
+        const { records } = req.body;
+
+        if (!records || !Array.isArray(records)) {
+            return res.status(400).json({ message: 'Records array is required' });
+        }
+
+        const results = await registrationService.syncCheckins(records);
+
+        return res.status(200).json({
+            message: 'Sync completed',
+            results
+        });
+    } catch (error) {
+        console.error('Sync Controller Error:', error.message);
+        return res.status(500).json({ message: 'Internal server error during sync' });
+    }
+};
