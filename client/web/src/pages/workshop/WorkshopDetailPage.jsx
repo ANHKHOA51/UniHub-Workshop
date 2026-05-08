@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
+import { QRCodeSVG } from 'qrcode.react';
 import { useWorkshopDetail, useRegisteredWorkshops, useRegisterWorkshop, useRegisterPaidWorkshop } from '../../hooks/useWorkShopData';
 import { SERVER_BASE_URL } from '../../utils/constants';
 import './WorkshopDetailPage.css';
@@ -20,12 +21,15 @@ const formatWorkshopTime = (isoString) => {
 const WorkshopDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [showQR, setShowQR] = useState(false);
   const { workshop, loading, error } = useWorkshopDetail(id);
   const { workshops: registeredList } = useRegisteredWorkshops();
   const { mutate: registerFree, isPending: isRegisteringFree } = useRegisterWorkshop();
   const { mutateAsync: registerPaid, isPending: isRegisteringPaid } = useRegisterPaidWorkshop();
 
-  const isRegistered = registeredList.some(w => String(w.id) === String(id));
+  const registration = registeredList.find(w => String(w.id) === String(id));
+  const isRegistered = !!registration;
+  const qrCodeValue = registration?.qr_code;
   const isRegistering = isRegisteringFree || isRegisteringPaid;
 
   const handleRegister = async () => {
@@ -136,10 +140,10 @@ const WorkshopDetailPage = () => {
             </div>
             <button
               className={`register-button ${isRegistered ? 'registered' : ''}`}
-              disabled={slotsLeft === 0 || isRegistered || isRegistering}
-              onClick={handleRegister}
+              disabled={(slotsLeft === 0 && !isRegistered) || isRegistering}
+              onClick={() => isRegistered ? setShowQR(true) : handleRegister()}
             >
-              {isRegistering ? 'Đang xử lý...' : isRegistered ? 'Đã đăng ký' : slotsLeft === 0 ? 'Hết chỗ' : 'Đăng ký ngay'}
+              {isRegistering ? 'Đang xử lý...' : isRegistered ? 'Xem mã QR' : slotsLeft === 0 ? 'Hết chỗ' : 'Đăng ký ngay'}
             </button>
             <p className="reg-note">* Mã QR sẽ được gửi sau khi đăng ký thành công</p>
           </div>
@@ -161,6 +165,20 @@ const WorkshopDetailPage = () => {
           </div>
         </aside>
       </div>
+
+      {showQR && qrCodeValue && (
+        <div className="qr-overlay" onClick={() => setShowQR(false)}>
+          <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Mã QR của bạn</h3>
+            <div className="qr-container">
+              <QRCodeSVG value={qrCodeValue} size={256} marginSize={5} />
+            </div>
+            <div className="qr-footer">
+              <p className="qr-note">Vui lòng xuất trình mã này tại quầy check-in</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
