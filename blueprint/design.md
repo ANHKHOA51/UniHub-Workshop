@@ -212,3 +212,66 @@ http header
 
 Sử dụng Idempotency key giúp backend nhận biết được request trừ tiền bị
 trùng, từ đó xử lý trùng lặp và tránh việc trừ tiền hai lần.
+
+## Các quyết định kỹ thuật quan trọng (ADR)
+
+### ADR01: Cơ sở dữ liệu: SQL (PostgreSQL) thay vì NoSQL
+
+- **Lựa chọn (Decision):** Sử dụng **PostgreSQL** (Relational Database) làm cơ sở dữ liệu chính thay vì các giải pháp NoSQL như MongoDB hay DynamoDB.
+- **Tại sao (Rationale):**
+    - **Tính toàn vẹn dữ liệu nhờ ràng buộc quan hệ (Referential Integrity):** Dữ liệu của hệ thống có cấu trúc quan hệ chặt chẽ giữa 5 bảng: `Users → Registrations → Workshops`, `Registrations → Payments`, `Users → Refresh_Tokens`. Hệ thống sử dụng trực tiếp các ràng buộc của PostgreSQL để đảm bảo tính toàn vẹn: `FOREIGN KEY ... ON DELETE CASCADE` (tự động xóa registrations khi xóa user/workshop), `UNIQUE(user_id, workshop_id)` (ngăn sinh viên đăng ký trùng cùng một workshop), và `NOT NULL` trên các trường quan trọng. Với NoSQL, toàn bộ các ràng buộc này phải được kiểm tra thủ công ở tầng ứng dụng (application-level validation), làm tăng rủi ro bug và độ phức tạp code.
+    - **Truy vấn quan hệ phức tạp bằng JOIN và Aggregate:** Nhiều nghiệp vụ cốt lõi của hệ thống yêu cầu kết hợp dữ liệu từ nhiều bảng trong một truy vấn duy nhất. Cụ thể: API lấy danh sách Workshop sử dụng `LEFT JOIN` giữa `workshops` và `registrations` kết hợp `COUNT()` và `CASE WHEN` để tính số lượng đăng ký và số lượng đã check-in trong cùng một query. API xem danh sách đăng ký của workshop sử dụng `JOIN` giữa `registrations` và `users` để trả về thông tin sinh viên. API lấy workshop của sinh viên kết hợp `JOIN` + `WHERE IN` + `subquery COUNT`. Với NoSQL, các truy vấn tương tự thường cần thiết kế thêm các collection phụ (denormalization) hoặc chạy aggregation pipeline phức tạp hơn, đồng thời khó đảm bảo dữ liệu luôn nhất quán giữa các collection.
+    - **Đặc tính đọc/ghi phù hợp với SQL (Read/Write Pattern):** Hệ thống có đặc tính **đọc nhiều, ghi ít nhưng ghi phải chính xác**: phần lớn thời gian, sinh viên duyệt danh sách workshop, xem chi tiết, kiểm tra trạng thái đăng ký (Read). Các thao tác ghi (đăng ký slot, tạo payment, cập nhật check-in) tuy ít hơn nhưng đòi hỏi **Strong Consistency** — đọc ngay sau ghi phải trả về dữ liệu mới nhất. PostgreSQL đảm bảo điều này mặc định, trong khi nhiều giải pháp NoSQL (MongoDB, DynamoDB) mặc định sử dụng **Eventual Consistency**, có thể dẫn đến tình huống sinh viên đăng ký thành công nhưng UI vẫn hiển thị "chưa đăng ký".
+    - **Đảm bảo tính nhất quán (Strong Consistency) cho các luồng nghiệp vụ cốt lõi:**
+        - **Quản lý slot và đăng ký (`createRegistration`, `cancelRegistration`):** Hệ thống tách biệt việc đếm slot (dùng `reserveSeat` trên Redis) để xử lý tải cao, nhưng PostgreSQL vẫn là nguồn dữ liệu gốc (Source of Truth). Khi có lỗi thanh toán hoặc sinh viên hủy vé (`cancelRegistration`), hệ thống phải xóa bản ghi `registrations` trong DB và hoàn lại slot (`DECR`) trên Redis một cách đồng bộ. Tính nhất quán mạnh của PostgreSQL đảm bảo số lượng vé bán ra thực tế luôn khớp tuyệt đối với số slot đã bị trừ trên Redis, loại bỏ hoàn toàn rủi ro overselling (bán lố vé) khi thực hiện đối soát (cross-check).
+        - **Thanh toán & Check-in:** Trong luồng thanh toán MoMo, khi webhook (`handlePaymentWebhook`) cập nhật trạng thái `success` và sinh mã QR, truy vấn tiếp theo của sinh viên phải ngay lập tức thấy được mã QR này. Tương tự, luồng đồng bộ check-in (`syncCheckins`) cần đọc chính xác trạng thái `check_in` hiện tại từ DB để từ chối các bản ghi đẩy lên trùng lặp. Nếu dùng NoSQL (Eventual Consistency), có thể xảy ra độ trễ dẫn đến sinh viên đã thanh toán vẫn chưa thấy mã QR, hoặc lọt luồng check-in trùng.
+- **Đánh đổi (Trade-offs):**
+    - **Đánh đổi Availability lấy Consistency trong môi trường tải cục bộ:** Việc tuân thủ Strong Consistency khiến PostgreSQL dễ bị thắt nút cổ chai (giảm khả năng ghi/Availability) khi có 12.000 sinh viên cùng đổ vào đăng ký. Tuy nhiên, **đây là một sự đánh đổi hoàn toàn hợp lý với đặc thù dự án**: tổng số người dùng không quá lớn (quy mô trường đại học) và hiện tượng quá tải chỉ mang tính "nhất thời" (burst) trong vài phút đầu mở form. Việc hệ thống có thể chậm hoặc từ chối một vài request lúc cao điểm (sinh viên có thể tải lại trang) là có thể chấp nhận được, miễn là dữ liệu tuyệt đối không sai lệch (không bán lố vé, không mất biên lai thanh toán). Hơn nữa, **cách project khắc phục** bằng việc dùng Redis làm "bộ đệm" chặn trước (rate limiting, dùng `DECR` trừ slot trên RAM) đã giúp giảm thiểu tối đa áp lực ghi lên PostgreSQL, giữ Availability ở mức an toàn.
+    - **Mở rộng ngang khó hơn (Horizontal Scaling):** PostgreSQL chủ yếu scale theo chiều dọc (tăng CPU/RAM). Việc scale ngang (Sharding) phức tạp hơn đáng kể so với MongoDB hay DynamoDB vốn được thiết kế sẵn cho distributed system. **Giải pháp khắc phục:** Kết hợp Redis để giảm tải các thao tác đọc/ghi nóng (seat reservation, rate limiting, idempotency cache), giúp PostgreSQL chỉ cần xử lý các truy vấn dữ liệu quan hệ — đủ đáp ứng cho quy mô trường đại học.
+    - **Schema cứng nhắc (Rigid Schema):** Mỗi lần thay đổi cấu trúc bảng cần thực hiện migration. NoSQL cho phép thêm trường linh hoạt mà không cần migration. **Giải pháp khắc phục:** Sử dụng file `init.sql` có version để quản lý schema, kết hợp Knex.js query builder cho phép thay đổi truy vấn linh hoạt mà không cần ORM nặng.
+    - **Không tối ưu cho dữ liệu phi cấu trúc:** Nếu hệ thống mở rộng để lưu trữ nội dung động (logs, user activity, AI-generated content) với schema thay đổi thường xuyên, PostgreSQL sẽ kém linh hoạt hơn. Tuy nhiên, với scope hiện tại của UniHub Workshop, toàn bộ dữ liệu đều có cấu trúc cố định và rõ ràng.
+
+---
+
+### ADR02. Cơ chế Xác thực: JWT (JSON Web Token)
+
+- **Lựa chọn (Decision):** Sử dụng **JWT** thay vì Session-based Authentication cho toàn bộ hệ thống (Web & Mobile).
+- **Tại sao (Rationale):**
+    - **Khả năng mở rộng (Scalability):** Hệ thống dự kiến đón 12.000 sinh viên truy cập đồng thời. JWT cho phép API Server chạy ở chế độ *stateless*, giúp giảm tải tài nguyên RAM do không cần duy trì bộ nhớ phiên (session) trên server, từ đó tối ưu hóa khả năng xử lý của một instance duy nhất.
+    - **Đa nền tảng (Cross-platform):** Phù hợp cho cả Web App (Admin/Sinh viên) và Mobile App (Nhân sự check-in) thông qua Header `Authorization: Bearer <token>`.
+- **Đánh đổi (Trade-offs):**
+    - **Hạn chế thu hồi:** Khó thu hồi token ngay lập tức nếu token chưa hết hạn. Giải pháp khắc phục: Sử dụng `refresh token` để quản lý phiên bản token và thiết lập thời gian hết hạn (TTL) ngắn cho Access Token.
+
+---
+
+### ADR03. Quản lý Tác vụ Nền: BullMQ (Redis-based)
+
+- **Lựa chọn (Decision):** Sử dụng **BullMQ** thay vì Kafka hoặc RabbitMQ.
+- **Tại sao (Rationale):**
+    - **Tận dụng hạ tầng hiện có:** Hệ thống đã sử dụng Redis cho Rate Limiting và Idempotency, việc dùng BullMQ giúp giảm bớt độ phức tạp trong vận hành (không cần cài đặt cụ thể Kafka/Zookeeper).
+    - **Tính năng mạnh mẽ:** Hỗ trợ sẵn cơ chế retry với **Exponential Backoff** (Lùi lại theo hàm mũ), phù hợp cho các tác vụ không ổn định như gửi Email hoặc gọi AI API.
+    - **Hiệu năng:** Đủ đáp ứng lưu lượng xử lý 12.000 bản ghi CSV hoặc hàng ngàn yêu cầu AI tóm tắt mà vẫn đảm bảo độ trễ thấp.
+- **Đánh đổi (Trade-offs):**
+    - **Phụ thuộc bộ nhớ Redis:** Các job được lưu trong RAM. Nếu số lượng job quá lớn, Redis có thể bị tràn bộ nhớ.
+    - **a:** So với Kafka, BullMQ khó mở rộng quy mô toàn cầu (Global Scale). Tuy nhiên, với mục tiêu phục vụ sinh viên trong trường, đây là một sự đánh đổi chấp nhận được để đổi lấy tốc độ phát triển.
+
+---
+
+### ADR04. Rate limit
+
+- **Lựa chọn (Decision):** Chọn thuật toán **Token Bucket** cho rate limit.
+- **Tại sao (Rationale):**
+    - **Cơ chế burst ngắn:** Với tình huống tải đột biến trong thời gian ngắn của bài toán (12.000 request/10 phút, với 60% request trong 3 phút đầu), sử dụng Token Bucket là hợp lý bởi cơ chế cho phép burst ngắn của thuật toán này.
+    - **Tính công bằng và kiểm soát quá tải:** Kết hợp với việc sử dụng 2 bucket cho hệ thống sẽ giúp đảm bảo tính công bằng (không có user nào chiếm toàn bộ bucket) và tránh quá tải (giới hạn tổng lượt request).
+- **Đánh đổi (Trade-offs):**
+    - **Độ phức tạp kỹ thuật:** Token bucket phức tạp hơn các thuật toán như Fixed Window hoặc Sliding Window do cần phải tính toán cách refill bucket và xử lý sai số dấu phẩy động khi refill bucket.
+
+---
+
+### ADR05. Lưu trữ idempotency key
+
+- **Lựa chọn (Decision):** Lưu trữ idempotency key trong **Redis**.
+- **Tại sao (Rationale):**
+    - **Tốc độ truy vấn:** Giúp việc truy vấn và kiểm tra tính duy nhất của request nhanh chóng.
+- **Đánh đổi (Trade-offs):**
+    - **Rủi ro mất dữ liệu khi Redis gặp sự cố:** Idempotency key trong Redis có thể bị mất khi Redis gặp sự cố hoặc cần restart. Khi đó, nếu có request trùng lặp trong lúc Redis đang gặp sự cố, hệ thống sẽ không thể dùng Idempotency key để ngăn chặn.
