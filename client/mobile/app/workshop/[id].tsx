@@ -52,7 +52,17 @@ export default function WorkshopDetailScreen() {
   const loadData = useCallback(async () => {
     if (!id) return;
     const workshops = await database.getWorkshops();
-    const found = workshops.find((w) => String(w.id) === String(id)) ?? null;
+    let found = workshops.find((w) => String(w.id) === String(id)) ?? null;
+
+    if (found) {
+      // Ép lấy số liệu tổng hợp trực tiếp từ bảng registrations để chính xác tuyệt đối
+      const stats = await database.getWorkshopStats(String(id));
+      found = {
+        ...found,
+        registeredCount: Math.max(found.registeredCount, stats.registered),
+        checkedInCount: Math.max(found.checkedInCount, stats.checkedIn),
+      };
+    }
     setWorkshop(found);
 
     // Load tất cả registrations đã check-in để hiển thị danh sách
@@ -168,7 +178,8 @@ export default function WorkshopDetailScreen() {
 
         if (registration.checkedInAt) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          const checkedTime = new Date(registration.checkedInAt).toLocaleTimeString('vi-VN');
+          const d = new Date(registration.checkedInAt);
+          const checkedTime = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
           setScanResult({
             status: 'ALREADY_CHECKED_IN',
             registration,
@@ -222,11 +233,10 @@ export default function WorkshopDetailScreen() {
         </Text>
         <Text style={[styles.checkinTime, { color: theme.textTertiary }]}>
           {item.checkedInAt
-            ? new Date(item.checkedInAt).toLocaleTimeString('vi-VN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-            })
+            ? (() => {
+                const d = new Date(item.checkedInAt);
+                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+              })()
             : '—'}
         </Text>
       </View>

@@ -53,9 +53,11 @@ export const WorkshopModel = {
             .join('users', 'registrations.user_id', 'users.id')
             .where('registrations.workshop_id', workshopId)
             .select(
-                'users.mssv',
-                'users.name',
-                'users.email',
+                'registrations.id',
+                'registrations.user_id',
+                'registrations.workshop_id',
+                'users.name as student_name',
+                'users.email as student_email',
                 'registrations.status',
                 'registrations.check_in',
                 'registrations.created_at'

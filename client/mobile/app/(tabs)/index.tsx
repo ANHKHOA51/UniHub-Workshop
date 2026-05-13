@@ -78,14 +78,7 @@ export default function WorkshopListScreen() {
     loadWorkshops();
   }, []);
 
-  // Reload định kỳ
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Gọi lại loadWorkshops để vừa fetch API (nếu có mạng) vừa update local DB
-      loadWorkshops();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [loadWorkshops]);
+
 
   const handleWorkshopPress = (workshop: Workshop) => {
     router.push(`/workshop/${workshop.id}` as any);

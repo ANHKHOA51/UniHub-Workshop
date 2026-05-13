@@ -67,6 +67,32 @@ export default function SettingsScreen() {
     }
   }, []);
 
+  const handleResetData = useCallback(() => {
+    Alert.alert(
+      'Tải lại toàn bộ dữ liệu',
+      'Thao tác này sẽ xóa toàn bộ dữ liệu offline hiện tại. Các bản ghi chưa đồng bộ sẽ BỊ MẤT. Bạn có chắc chắn muốn tải lại từ đầu?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Đồng ý',
+          style: 'destructive',
+          onPress: async () => {
+            setIsSyncing(true);
+            try {
+              await database.clearAllData();
+              setPendingCount(0);
+              Alert.alert('Thành công', 'Đã xóa dữ liệu cũ. Vui lòng về tab Home và vuốt xuống để tải lại dữ liệu mới nhất!');
+            } catch (error) {
+              Alert.alert('Lỗi', 'Không thể xóa dữ liệu.');
+            } finally {
+              setIsSyncing(false);
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
   const handleLogout = () => {
     if (pendingCount > 0) {
       Alert.alert(
@@ -169,6 +195,15 @@ export default function SettingsScreen() {
           disabled={!isOnline || pendingCount === 0}
           icon={<MaterialIcons name="sync" size={18} color={colorScheme === 'dark' ? '#000000' : '#FFFFFF'} />}
           style={styles.syncButton}
+        />
+
+        <Button
+          title="Xóa & Tải lại dữ liệu (Override)"
+          onPress={handleResetData}
+          variant="secondary"
+          loading={isSyncing}
+          icon={<MaterialIcons name="cloud-download" size={18} color={theme.text} />}
+          style={styles.overrideButton}
         />
       </View>
 
@@ -302,6 +337,9 @@ const styles = StyleSheet.create({
   },
   syncButton: {
     marginTop: Spacing.lg,
+  },
+  overrideButton: {
+    marginTop: Spacing.md,
   },
   logoutButton: {
     marginTop: Spacing['3xl'],

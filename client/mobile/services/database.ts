@@ -112,6 +112,8 @@ export async function saveWorkshops(workshops: Workshop[]): Promise<void> {
 export async function getWorkshops(): Promise<Workshop[]> {
   const database = await getDb();
 
+  // Dùng subquery đếm trực tiếp trên registrations local
+  // Để nếu server trả về số cũ do chưa sync, UI vẫn hiển thị số mới nhất của local
   const rows = await database.getAllAsync<{
     id: string;
     title: string;
@@ -122,7 +124,14 @@ export async function getWorkshops(): Promise<Workshop[]> {
     capacity: number;
     registered_count: number;
     checked_in_count: number;
-  }>('SELECT * FROM workshops ORDER BY time ASC');
+    local_reg_count: number;
+    local_checkin_count: number;
+  }>(`
+    SELECT w.*,
+      (SELECT COUNT(*) FROM registrations r WHERE r.workshop_id = w.id) as local_reg_count,
+      (SELECT COUNT(*) FROM registrations r WHERE r.workshop_id = w.id AND r.check_in IS NOT NULL) as local_checkin_count
+    FROM workshops w ORDER BY w.time ASC
+  `);
 
   return rows.map((row) => {
     let dateStr = '';
@@ -147,8 +156,8 @@ export async function getWorkshops(): Promise<Workshop[]> {
       startTime: startTimeStr,
       endTime: '',
       maxSlots: row.capacity,
-      registeredCount: row.registered_count,
-      checkedInCount: row.checked_in_count,
+      registeredCount: Math.max(row.registered_count || 0, row.local_reg_count || 0),
+      checkedInCount: Math.max(row.checked_in_count || 0, row.local_checkin_count || 0),
     };
   });
 }
@@ -161,8 +170,15 @@ export async function saveRegistrations(registrations: Registration[]): Promise<
 
   for (const r of registrations) {
     await database.runAsync(
-      `INSERT OR REPLACE INTO registrations (id, user_id, workshop_id, student_name, student_email, check_in, pending_sync)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO registrations (id, user_id, workshop_id, student_name, student_email, check_in, pending_sync)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         user_id = excluded.user_id,
+         workshop_id = excluded.workshop_id,
+         student_name = excluded.student_name,
+         student_email = excluded.student_email,
+         check_in = CASE WHEN registrations.pending_sync = 1 THEN registrations.check_in ELSE excluded.check_in END,
+         pending_sync = CASE WHEN registrations.pending_sync = 1 THEN 1 ELSE excluded.pending_sync END`,
       [r.id, r.userId || '', r.workshopId, r.studentName, r.studentEmail, r.checkedInAt, r.pendingSync ? 1 : 0]
     );
   }
@@ -230,10 +246,24 @@ export async function markCheckedIn(registrationId: string): Promise<void> {
   const database = await getDb();
   const now = new Date().toISOString();
 
+  // Tìm workshop_id để tăng số đếm
+  const reg = await database.getFirstAsync<{ workshop_id: string }>(
+    'SELECT workshop_id FROM registrations WHERE id = ?',
+    [registrationId]
+  );
+
   await database.runAsync(
     'UPDATE registrations SET check_in = ?, pending_sync = 1 WHERE id = ?',
     [now, registrationId]
   );
+
+  // Tăng checked_in_count cục bộ để UI nhảy số ngay lập tức
+  if (reg && reg.workshop_id) {
+    await database.runAsync(
+      'UPDATE workshops SET checked_in_count = checked_in_count + 1 WHERE id = ?',
+      [reg.workshop_id]
+    );
+  }
 }
 
 /** Lấy tất cả bản ghi chưa đồng bộ */
@@ -307,5 +337,26 @@ export async function getRecentCheckins(workshopId: string, limit: number = 20):
   }));
 }
 
+/** Lấy thống kê số lượng đăng ký và checkin thực tế cục bộ */
+export async function getWorkshopStats(workshopId: string): Promise<{ registered: number; checkedIn: number }> {
+  const database = await getDb();
+  const row = await database.getFirstAsync<{ registered: number; checkedIn: number }>(
+    'SELECT COUNT(*) as registered, SUM(CASE WHEN check_in IS NOT NULL THEN 1 ELSE 0 END) as checkedIn FROM registrations WHERE workshop_id = ?',
+    [workshopId]
+  );
+  return {
+    registered: row?.registered || 0,
+    checkedIn: row?.checkedIn || 0,
+  };
+}
+
 // ─── End of Service ─────────────────────────────────────────
 
+/** Xóa toàn bộ dữ liệu cục bộ (Reset DB) */
+export async function clearAllData(): Promise<void> {
+  const database = await getDb();
+  await database.execAsync(`
+    DELETE FROM registrations;
+    DELETE FROM workshops;
+  `);
+}
